@@ -1,0 +1,191 @@
+/* ========== NAVIGATION ========== */
+
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    padding: 20px 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+    transition: all 0.3s;
+}
+
+.navbar.scrolled {
+    background: rgba(10, 10, 10, 0.95);
+    backdrop-filter: blur(10px);
+}
+
+.nav-container {
+    max-width: 90%;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-links {
+    display: flex;
+    gap: 40px;
+    margin: 0 auto;
+}
+
+.nav-links a {
+    color: var(--white);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: color 0.3s;
+    position: relative;
+}
+
+.nav-links a::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    transition: width 0.3s;
+}
+
+.navbar.real-estate .nav-links a::after {
+    background: var(--gold);
+}
+
+.navbar.green-energy .nav-links a::after {
+    background: #16a34a;
+}
+
+.nav-links a:hover::after {
+    width: 100%;
+}
+
+
+.navbar.real-estate .nav-links a:hover {
+    color: var(--gold-light);
+}
+
+.navbar.green-energy .nav-links a:hover {
+    color: #22c55e;
+}
+
+.nav-actions {
+    display: flex;
+    gap: 25px;
+    align-items: center;
+    margin-top: -7px;
+}
+
+.nav-login {
+    color: var(--white);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.nav-signup {
+    padding: 12px 28px;
+    background: var(--gold);
+    color: var(--dark);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 50px;
+    transition: all 0.3s;
+}
+
+.nav-signup:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(201, 169, 98, 0.3);
+}
+
+.nav-signup.real-estate-mode {
+  background: #c9a227;
+}
+
+.nav-signup.green-mode {
+  background: #16a34a;
+}
+
+.hamburger {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--white);
+    font-size: 24px;
+    cursor: pointer;
+}
+
+/* ========== MOBILE NAV ========== */
+
+@media (max-width: 768px) {
+
+    .nav-container {
+        flex-wrap: wrap;
+    }
+
+    .hamburger {
+        display: block;
+        position: relative;
+        z-index: 3001;
+    }
+
+    .nav-links {
+        position: fixed;
+        top: 0;
+        right: -100%;
+
+        width: 80%;
+        height: 100vh;
+
+        background: rgba(10, 10, 10, 0.98);
+        backdrop-filter: blur(20px);
+
+        flex-direction: column;
+
+        justify-content: flex-start;
+        align-items: flex-start;
+
+        padding: 120px 40px;
+
+        gap: 30px;
+
+        transition: right 0.4s ease;
+
+        z-index: 3000;
+    }
+
+    .nav-links.active {
+        right: 0;
+    }
+
+    .nav-links a {
+        font-size: 18px;
+    }
+
+    .nav-links.active ~ .hamburger {
+        position: fixed;
+        top: 35px;
+        right: 30px;
+    }
+
+    .nav-actions {
+    display: grid;
+    width: 70%;
+    gap: 14px;
+    margin-top: 20px;
+    
+}
+}
+
+.nav-actions .nav-login,
+.nav-actions .nav-signup {
+    font-size: 13px;
+}
+
+.nav-actions .nav-signup {
+    padding: 10px 20px;
+}

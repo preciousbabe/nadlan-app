@@ -1,0 +1,119 @@
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 30px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: #0a0a0a;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.topbar-greeting {
+    flex: 1;
+}
+
+.topbar-greeting h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #fff;
+}
+
+.topbar-greeting p {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.topbar-user {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.kyc-badge {
+    background: #332800;
+    color: #f5d27a;
+    padding: 6px 14px;
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.user-email {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.dashboard-menu-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 28px;
+    cursor: pointer;
+    padding: 0;
+    margin-right: 15px;
+}
+
+.notification-bell {
+    position: relative;
+    color: rgba(255, 255, 255, 0.7);
+    text-decoration: none;
+    transition: color 0.3s;
+    display: flex;
+    align-items: center;
+}
+
+.notification-bell:hover {
+    color: #C9A962;
+}
+
+.notification-dot {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: #FF4D4D;
+    border-radius: 50%;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .topbar {
+        padding: 15px 20px;
+    }
+
+    .dashboard-menu-btn {
+        display: block;
+    }
+
+    .topbar-greeting h2 {
+        font-size: 16px;
+    }
+
+    .user-email {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .topbar-actions {
+        gap: 12px;
+    }
+
+    .kyc-badge {
+        font-size: 10px;
+        padding: 4px 10px;
+    }
+}

@@ -1,0 +1,10 @@
+.green-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.green-layout__main {
+  flex: 1;
+  padding-top: 0; /* Navbar is fixed, pages handle their own padding */
+}
