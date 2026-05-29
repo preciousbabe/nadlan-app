@@ -2,7 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { DashboardProvider } from '../context/DashboardContext'
 import DashboardLayout from './layouts/DashboardLayout'
 import AdminPayments from "./admin/AdminPayments";
-import AdminKYC from "./admin/AdminKYC";
+import AdminKYC from "./admin/AdminKyc";
 import DashboardHome from './pages/DashboardHome'
 import InvestmentPlans from './pages/InvestmentPlans'
 import Portfolio from './pages/Portfolio'
