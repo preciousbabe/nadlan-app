@@ -13,8 +13,8 @@ import Login from '../pages/Login'
 import Signup from '../pages/Signup'
 import DashboardRoutes from '../dashboard/DashboardRoutes'
 import ProtectedRoute from '../components/ProtectedRoute'
-import GreenLayout from '../layout/GreenLayout'
-import RealLayout from '../layout/RealLayout';
+import GreenLayout from '../Layout/GreenLayout'
+import RealLayout from '../Layout/RealLayout';
 
 export default function AppRoutes({ currentSection, setCurrentSection }) {
   return (
