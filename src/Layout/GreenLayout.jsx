@@ -1,5 +1,5 @@
-import NavbarGreen from '../components/navbar-green'
-import FooterGreen from '../components/footer-green'
+import NavbarGreen from '../components/Navbar-Green'
+import FooterGreen from '../components/Footer-Green'
 import './GreenLayout.css'
 
 export default function GreenLayout({ children }) {
