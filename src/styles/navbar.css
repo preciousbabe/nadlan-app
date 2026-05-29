@@ -51,6 +51,10 @@
     transition: width 0.3s;
 }
 
+.navbar.green-energy .nav-links a{
+    color:white;
+}
+
 .navbar.real-estate .nav-links a::after {
     background: var(--gold);
 }

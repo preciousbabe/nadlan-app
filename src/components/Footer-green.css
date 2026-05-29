@@ -33,6 +33,10 @@
   font-size: 1.3rem;
 }
 
+.footer__logo-image{
+  width: 120px;
+}
+
 .footer__logo-green {
   color: var(--primary-green, #22c55e);
 }

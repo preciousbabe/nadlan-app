@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import storyImage from '../assets/images/story.png'
+import { Link } from 'react-router-dom'
 import '../styles/about.css'
 
 export default function About() {
@@ -60,7 +61,7 @@ export default function About() {
         </p>
 
         <div className="story__link">
-          <a href="#">Explore NADLAN</a>
+          <a href="#contact">Book A Call</a>
         </div>
 
       </div>

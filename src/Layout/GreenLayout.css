@@ -10,3 +10,41 @@
 }
 
 
+.green-layout {
+  min-height: 100vh;
+
+  background: white;
+}
+
+/* =========================================
+   SCOPED GREEN SCROLLBAR
+========================================= */
+
+.green-layout * {
+  scrollbar-width: thin;
+  scrollbar-color: #22c55e white;
+}
+
+/* Chrome / Safari / Edge */
+
+.green-layout *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.green-layout *::-webkit-scrollbar-track {
+  background: white;
+}
+
+.green-layout *::-webkit-scrollbar-thumb {
+  background: #22c55e;
+  border-radius: 20px;
+}
+
+.green-layout *::-webkit-scrollbar-thumb:hover {
+  background: #16a34a;
+}
+
+.green-layout__main {
+  width: 100%;
+}

@@ -4,6 +4,10 @@ import './Solar.css'
 export default function Solar() {
   const sectionRef = useRef(null)
   const [isVisible, setIsVisible] = useState(false)
+  const [monthlyBill, setMonthlyBill] = useState('')
+const [propertyType, setPropertyType] = useState('Residential')
+
+const [results, setResults] = useState(null)
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -48,6 +52,63 @@ export default function Solar() {
     { value: '12,000+', label: 'Tonnes CO₂ Offset' },
     { value: '98%', label: 'Client Satisfaction' }
   ]
+
+ function calculateSolarEstimate() {
+  const bill = parseFloat(monthlyBill)
+
+  if (!bill || isNaN(bill) || bill <= 0) {
+    alert('Please enter a valid electricity bill')
+    return
+  }
+
+  // estimated system size in kW
+  const systemSize = bill / 25000
+
+  // estimated savings
+  const monthlySavings = bill * 0.7
+  const yearlySavings = monthlySavings * 12
+
+  // estimated panels
+  const estimatedPanels = Math.ceil(systemSize * 2)
+
+  // estimated installation cost
+  const estimatedCost = systemSize * 850000
+
+  // ROI
+  const roiYears =
+    yearlySavings > 0
+      ? estimatedCost / yearlySavings
+      : 0
+
+  setResults({
+    estimatedSystemSize: systemSize.toFixed(1),
+    monthlySavings: Math.round(monthlySavings),
+    yearlySavings: Math.round(yearlySavings),
+    estimatedPanels,
+    estimatedCost: Math.round(estimatedCost),
+    roiYears: roiYears.toFixed(1)
+  })
+
+  setTimeout(() => {
+  document
+    .querySelector('.solar-results')
+    ?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+}, 100)
+
+  console.log('RESULTS:', {
+    estimatedSystemSize: systemSize.toFixed(1),
+    monthlySavings,
+    yearlySavings,
+    estimatedPanels,
+    estimatedCost,
+    roiYears
+  })
+}
+
+
 
   return (
     <div className="solar-page">
@@ -191,6 +252,154 @@ export default function Solar() {
           </div>
         </div>
       </section>
+
+
+      {/* Solar Calculator */}
+<section id="calculator" className="solar-calculator">
+  <div className="solar-calculator__container">
+
+    <div className="solar-calculator__left">
+      <span className="solar-calculator__eyebrow">
+        Free Solar Assessment
+      </span>
+
+      <h2 className="solar-calculator__title">
+        Calculate Your
+        <span> Solar Savings</span>
+      </h2>
+
+      <p className="solar-calculator__text">
+        Get an instant estimate of your energy savings,
+        recommended system size, and projected monthly
+        electricity reduction.
+      </p>
+
+      <div className="solar-calculator__stats">
+        <div>
+          <strong>70%</strong>
+          <span>Average Savings</span>
+        </div>
+
+        <div>
+          <strong>25+</strong>
+          <span>Years Lifespan</span>
+        </div>
+
+        <div>
+          <strong>48hrs</strong>
+          <span>Proposal Delivery</span>
+        </div>
+      </div>
+    </div>
+
+    <div className="solar-calculator__card">
+
+      <div className="solar-calculator__group">
+        <label>Monthly Electricity Bill</label>
+
+       <input
+         type="number"
+         placeholder="e.g 150000"
+         value={monthlyBill}
+         onChange={(e) =>
+           setMonthlyBill(e.target.value)
+         }
+       />
+      </div>
+
+      <div className="solar-calculator__group">
+        <label>Property Type</label>
+
+       <select
+       value={propertyType}
+     onChange={(e) =>
+    setPropertyType(e.target.value)
+      }
+     >
+      <option>Residential</option>
+      <option>Commercial</option>
+      <option>Industrial</option>
+     </select>
+       </div>
+
+      <div className="solar-calculator__group">
+        <label>Location</label>
+
+        <input
+          type="text"
+          placeholder="Lagos, Abuja, Port Harcourt..."
+        />
+      </div>
+
+      <div className="solar-calculator__group">
+  <label>Do You Need Battery Storage?</label>
+
+  <select>
+    <option>Yes</option>
+    <option>No</option>
+  </select>
+</div>
+
+    <button
+  type="button"
+  className="solar-calculator__button"
+  onClick={calculateSolarEstimate}
+>
+     Calculate Savings
+     </button>
+
+      {results && (
+  <div className="solar-results">
+
+    <div className="solar-results__item">
+      <span>Recommended System</span>
+      <strong>
+        {results.estimatedSystemSize}kW
+      </strong>
+    </div>
+
+    <div className="solar-results__item">
+      <span>Estimated Panels</span>
+      <strong>
+        {results.estimatedPanels}
+      </strong>
+    </div>
+
+    <div className="solar-results__item">
+      <span>Monthly Savings</span>
+      <strong>
+        ₦{results.monthlySavings.toLocaleString()}
+      </strong>
+    </div>
+
+    <div className="solar-results__item">
+      <span>Yearly Savings</span>
+      <strong>
+        ₦{results.yearlySavings.toLocaleString()}
+      </strong>
+    </div>
+
+    <div className="solar-results__item">
+      <span>Estimated System Cost</span>
+      <strong>
+        ₦{results.estimatedCost.toLocaleString()}
+      </strong>
+    </div>
+
+    <div className="solar-results__item">
+      <span>Estimated ROI</span>
+      <strong>
+        {results.roiYears} Years
+      </strong>
+    </div>
+
+  </div>
+)}
+
+    </div>
+
+  </div>
+</section>
 
       {/* CTA Banner */}
       <section className="solar-cta">

@@ -3,14 +3,16 @@ import { Link, useLocation } from 'react-router-dom'
 import nadlanLogo from '../assets/images/NADLAN_LOGO.png'
 import './Navbar-green.css'
 
-export default function Navbar() {
+export default function GreenNavbar() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 60)
+
     window.addEventListener('scroll', handleScroll)
+
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
@@ -27,42 +29,69 @@ export default function Navbar() {
   ]
 
   const isActive = (path) => location.pathname === path
+  const darkHeroPages = ['/energy', '/projects']
+
+const isDarkHero = darkHeroPages.includes(location.pathname)
 
   return (
-    <nav className={`navbar ${scrolled ? 'navbar--scrolled' : ''}`}>
-      <div className="navbar__container">
-        <Link to="/" className="navbar__logo">
+   <nav
+  className={`green-navbar
+    ${scrolled ? 'green-navbar--scrolled' : ''}
+    ${isDarkHero ? 'green-navbar--light-links' : 'green-navbar--dark-links'}
+  `}
+>
+      <div className="green-navbar__container">
 
-  <img
-    src={nadlanLogo}
-    alt="NADLAN Logo"
-    className="navbar__logo-image"
-  />
-</Link>
+        <Link to="/" className="green-navbar__logo">
+          <img
+            src={nadlanLogo}
+            alt="NADLAN Logo"
+            className="green-navbar__logo-image"
+          />
+        </Link>
 
-        <button 
-          className="navbar__toggle" 
+        <button
+          className="green-navbar__toggle"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle menu"
         >
-          <span className={`navbar__hamburger ${mobileOpen ? 'navbar__hamburger--open' : ''}`}></span>
+          <span
+            className={`green-navbar__hamburger ${
+              mobileOpen ? 'green-navbar__hamburger--open' : ''
+            }`}
+          />
         </button>
 
-        <ul className={`navbar__links ${mobileOpen ? 'navbar__links--open' : ''}`}>
+        <ul
+          className={`green-navbar__links ${
+            mobileOpen ? 'green-navbar__links--open' : ''
+          }`}
+        >
           {navLinks.map((link) => (
             <li key={link.to}>
-              <Link 
-                to={link.to} 
-                className={`navbar__link ${isActive(link.to) ? 'navbar__link--active' : ''}`}
+              <Link
+                to={link.to}
+                className={`green-navbar__link ${
+                  isActive(link.to)
+                    ? 'green-navbar__link--active'
+                    : ''
+                }`}
               >
                 {link.label}
               </Link>
             </li>
           ))}
+
           <li>
-            <Link to="/invest" className="navbar__cta">Invest Now</Link>
+            <Link
+             to="/solar#calculator"
+             className="green-navbar__cta"
+           >
+             Free Energy Assessment
+           </Link>
           </li>
         </ul>
+
       </div>
     </nav>
   )

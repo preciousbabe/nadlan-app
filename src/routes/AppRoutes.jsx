@@ -15,9 +15,13 @@ import DashboardRoutes from '../dashboard/DashboardRoutes'
 import ProtectedRoute from '../components/ProtectedRoute'
 import GreenLayout from '../Layout/GreenLayout'
 import RealLayout from '../Layout/RealLayout';
+import ScrollToHash from '../components/ScrollToHash'
 
 export default function AppRoutes({ currentSection, setCurrentSection }) {
   return (
+  <>
+    <ScrollToHash />
+
     <Routes>
       <Route
         path="/"
@@ -54,6 +58,7 @@ export default function AppRoutes({ currentSection, setCurrentSection }) {
           </ProtectedRoute>
         }
       />
-    </Routes>
-  )
+       </Routes>
+  </>
+)
 }

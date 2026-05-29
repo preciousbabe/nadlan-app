@@ -1,4 +1,4 @@
-.navbar {
+.green-navbar {
   position: fixed;
   top: 0;
   left: 0;
@@ -9,198 +9,318 @@
   background: transparent;
 }
 
-.navbar--scrolled {
+.green-navbar--scrolled {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
   padding: 0.75rem 0;
 }
 
-.navbar__container {
+.green-navbar__container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 1.5rem;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.navbar__logo {
+/* =========================================
+   LOGO
+========================================= */
+
+.green-navbar__logo {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.8rem;
+
   text-decoration: none;
   font-weight: 700;
   font-size: 1.35rem;
+
   color: var(--text-dark, #1a1a2e);
 }
 
-.navbar__logo-icon {
+.green-navbar__logo-icon {
   font-size: 1.5rem;
 }
 
-.navbar__logo-green {
+.green-navbar__logo-green {
   color: var(--primary-green, #22c55e);
 }
 
-.navbar__toggle {
+.green-navbar__logo-image {
+  width: 72px;
+  height: 72px;
+
+  object-fit: cover;
+  border-radius: 12px;
+
+  display: block;
+}
+
+/* =========================================
+   MOBILE TOGGLE
+========================================= */
+
+.green-navbar__toggle {
   display: none;
+
   background: none;
   border: none;
+
   cursor: pointer;
   padding: 0.5rem;
 }
 
-.navbar__hamburger {
+.green-navbar__hamburger {
   display: block;
+
   width: 24px;
   height: 2px;
+
   background: var(--text-dark, #1a1a2e);
+
   position: relative;
+
   transition: all 0.3s ease;
 }
 
-.navbar__hamburger::before,
-.navbar__hamburger::after {
+.green-navbar__hamburger::before,
+.green-navbar__hamburger::after {
   content: '';
+
   position: absolute;
+
   width: 24px;
   height: 2px;
+
   background: var(--text-dark, #1a1a2e);
+
   transition: all 0.3s ease;
 }
 
-.navbar__hamburger::before { top: -7px; }
-.navbar__hamburger::after { top: 7px; }
+.green-navbar__hamburger::before {
+  top: -7px;
+}
 
-.navbar__hamburger--open {
+.green-navbar__hamburger::after {
+  top: 7px;
+}
+
+.green-navbar__hamburger--open {
   background: transparent;
 }
 
-.navbar__hamburger--open::before {
+.green-navbar__hamburger--open::before {
   transform: rotate(45deg);
   top: 0;
 }
 
-.navbar__hamburger--open::after {
+.green-navbar__hamburger--open::after {
   transform: rotate(-45deg);
   top: 0;
 }
 
-.navbar__links {
+/* =========================================
+   NAV LINKS
+========================================= */
+
+.green-navbar__links {
   display: flex;
   align-items: center;
   gap: 2rem;
+
   list-style: none;
+
   margin: 0;
   padding: 0;
 }
 
-.navbar__link {
+.green-navbar__link {
   text-decoration: none;
-  color:gold;
+
+  color: gold;
+
   font-weight: 500;
   font-size: 0.95rem;
+
   position: relative;
+
   padding: 0.25rem 0;
+
   transition: color 0.2s ease;
 }
 
-.navbar__link::after {
+.green-navbar__link::after {
   content: '';
+
   position: absolute;
+
   bottom: 0;
   left: 0;
+
   width: 0;
   height: 2px;
+
   background: var(--primary-green, #22c55e);
+
   transition: width 0.3s ease;
 }
 
-.navbar__link:hover::after,
-.navbar__link--active::after {
+.green-navbar__link:hover::after,
+.green-navbar__link--active::after {
   width: 100%;
 }
 
-.navbar__link--active {
+.green-navbar__link--active {
   color: var(--primary-green, #22c55e);
   font-weight: 600;
 }
 
-.navbar__cta {
+.green-navbar__logo-image{
+  width:120px;
+}
+
+/* =========================================
+   CTA BUTTON
+========================================= */
+
+.green-navbar__cta {
   background: var(--primary-green, #22c55e);
+
   color: white;
+
   text-decoration: none;
+
   padding: 0.6rem 1.5rem;
+
   border-radius: 8px;
+
   font-weight: 600;
   font-size: 0.9rem;
+
   transition: all 0.3s ease;
 }
 
-.navbar__cta:hover {
+.green-navbar__cta:hover {
   background: var(--primary-green-dark, #16a34a);
+
   transform: translateY(-1px);
+
   box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
 }
 
+/* =========================================
+   MOBILE
+========================================= */
+
 @media (max-width: 768px) {
-  .navbar__toggle {
+
+  .green-navbar__toggle {
     display: block;
   }
 
-  .navbar__links {
+  .green-navbar__links {
     position: absolute;
+
     top: 100%;
     left: 0;
     right: 0;
+
     flex-direction: column;
     gap: 0;
+
     background: #C9A962;
+
     backdrop-filter: blur(12px);
+
     padding: 1rem 0;
+
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+
     transform: translateY(-10px);
+
     opacity: 0;
     pointer-events: none;
+
     transition: all 0.3s ease;
   }
 
-  .navbar__links--open {
+  .green-navbar__links--open {
     transform: translateY(0);
+
     opacity: 1;
+
     pointer-events: all;
   }
 
-  .navbar__links li {
+  .green-navbar__links li {
     width: 100%;
     text-align: center;
   }
 
-  .navbar__link,
-  .navbar__cta {
+  .green-navbar__link,
+  .green-navbar__cta {
     display: block;
+
     padding: 1rem;
+
     width: 100%;
   }
 
-  .navbar__cta {
+  .green-navbar__cta {
     margin: 0.5rem 1.5rem;
+
     width: calc(100% - 3rem);
+  }
+
+  .green-navbar__logo-image {
+    width: 60px;
+    height: 60px;
   }
 }
 
 
-.navbar__logo {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
+/* =========================================
+   LIGHT LINKS (FOR DARK HERO SECTIONS)
+========================================= */
+
+.green-navbar--light-links .green-navbar__link {
+  color: white;
 }
 
-.navbar__logo-image {
-  width: 72px;
-  height: 72px;
-  object-fit: cover;
-  border-radius: 12px;
-  display: block;
+.green-navbar--light-links .green-navbar__hamburger,
+.green-navbar--light-links .green-navbar__hamburger::before,
+.green-navbar--light-links .green-navbar__hamburger::after {
+  background: white;
+}
+
+/* =========================================
+   DARK LINKS (FOR LIGHT HERO SECTIONS)
+========================================= */
+
+.green-navbar--dark-links .green-navbar__link {
+  color: #1a1a1a;
+}
+
+.green-navbar--dark-links .green-navbar__hamburger,
+.green-navbar--dark-links .green-navbar__hamburger::before,
+.green-navbar--dark-links .green-navbar__hamburger::after {
+  background: #1a1a1a;
+}
+
+/* =========================================
+   SCROLLED STATE ALWAYS USES DARK TEXT
+========================================= */
+
+.green-navbar--scrolled .green-navbar__link {
+  color: #1a1a1a;
+}
+
+.green-navbar--scrolled .green-navbar__hamburger,
+.green-navbar--scrolled .green-navbar__hamburger::before,
+.green-navbar--scrolled .green-navbar__hamburger::after {
+  background: #1a1a1a;
 }

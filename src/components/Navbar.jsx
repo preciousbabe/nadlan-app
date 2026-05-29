@@ -54,21 +54,21 @@ export default function Navbar({ currentSection }) {
     )}
 
     <Link
-      to={
-        currentSection === 'green-energy'
-          ? '/green-energy'
-          : '/signup'
-      }
-      className={`nav-signup ${
-        currentSection === 'green-energy'
-          ? 'green-mode'
-          : 'real-estate-mode'
-      }`}
-    >
-      {currentSection === 'green-energy'
-        ? 'Explore'
-        : 'Get Started'}
-    </Link>
+  to={
+    currentSection === 'green-energy'
+      ? '/solar#calculator'
+      : '/signup'
+  }
+  className={`nav-signup ${
+    currentSection === 'green-energy'
+      ? 'green-mode'
+      : 'real-estate-mode'
+  }`}
+>
+  {currentSection === 'green-energy'
+    ? 'Go Green'
+    : 'Get Started'}
+</Link>
 
   </div>
 
