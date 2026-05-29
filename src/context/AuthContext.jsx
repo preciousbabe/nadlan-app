@@ -62,14 +62,20 @@ export function AuthProvider({ children }) {
 
   }, [])
 
+
+  
   // -------------------------
   // AUTH ACTIONS
   // -------------------------
-  async function signup(email, password, fullName, username) {
-    // Call Netlify Function — it handles Supabase signup + profile + email
-    const res = await fetch('/api/send-auth-email', {
+async function signup(email, password, fullName, username) {
+
+  try {
+
+    const res = await fetch('/.netlify/functions/send-auth-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         email,
         password,
@@ -82,11 +88,30 @@ export function AuthProvider({ children }) {
     const result = await res.json()
 
     if (!res.ok) {
-      return { error: new Error(result.error || 'Signup failed') }
+      return {
+        error: new Error(result.error || 'Signup failed')
+      }
     }
 
-    return { data: { user: { id: result.userId } } }
+    return {
+      data: {
+        user: {
+          id: result.userId
+        }
+      }
+    }
+
+  } catch (err) {
+
+    return {
+      error: new Error(
+        err.message || 'Network error. Please try again.'
+      )
+    }
   }
+}
+
+
 
   async function login(email, password) {
     return await supabase.auth.signInWithPassword({
