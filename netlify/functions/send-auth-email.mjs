@@ -1,6 +1,42 @@
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 
+const SITE_URL = 'https://starlit-crepe-92496b.netlify.app'
+
+export async function handler(event, context) {
+
+  console.log('SUPABASE_URL:', process.env.SUPABASE_URL)
+console.log('SUPABASE_URL exists?', !!process.env.SUPABASE_URL)
+console.log('SERVICE_ROLE exists?', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+console.log('RESEND exists?', !!process.env.RESEND_API_KEY)
+
+if (!process.env.SUPABASE_URL) {
+  return {
+    statusCode: 500,
+    body: JSON.stringify({
+      error: 'SUPABASE_URL missing'
+    })
+  }
+}
+
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  return {
+    statusCode: 500,
+    body: JSON.stringify({
+      error: 'SUPABASE_SERVICE_ROLE_KEY missing'
+    })
+  }
+}
+
+if (!process.env.RESEND_API_KEY) {
+  return {
+    statusCode: 500,
+    body: JSON.stringify({
+      error: 'RESEND_API_KEY missing'
+    })
+  }
+}
+
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 const supabaseAdmin = createClient(
@@ -8,9 +44,6 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-const SITE_URL = 'https://starlit-crepe-92496b.netlify.app'
-
-export async function handler(event, context) {
 
   // Allow only POST requests
   if (event.httpMethod !== 'POST') {
