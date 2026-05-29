@@ -98,7 +98,7 @@
 
 .navbar__link {
   text-decoration: none;
-  color:#E8D5A3;
+  color:gold;
   font-weight: 500;
   font-size: 0.95rem;
   position: relative;
@@ -156,7 +156,7 @@
     right: 0;
     flex-direction: column;
     gap: 0;
-    background: rgba(255, 255, 255, 0.98);
+    background: #C9A962;
     backdrop-filter: blur(12px);
     padding: 1rem 0;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);

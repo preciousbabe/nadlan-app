@@ -1,15 +1,17 @@
-import React from 'react';
-import NavbarReal from '../components/navbar-real';
-import FooterReal from '../components/footer-real';
+import NavbarReal from '../components/navbar-real'
+import FooterReal from '../components/footer-real'
+import './RealLayout.css'
 
 export default function RealLayout({ children }) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="real-layout">
       <NavbarReal />
-      <main style={{ flex: 1 }}>
+
+      <main className="real-layout__main">
         {children}
       </main>
+
       <FooterReal />
     </div>
-  );
+  )
 }

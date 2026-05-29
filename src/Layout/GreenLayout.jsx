@@ -1,15 +1,17 @@
-import NavbarReal from '../components/navbar-real'
-import FooterReal from '../components/footer-real'
-import './RealLayout.css'
+import NavbarGreen from '../components/navbar-green'
+import FooterGreen from '../components/footer-green'
+import './GreenLayout.css'
 
-export default function RealLayout({ children }) {
+export default function GreenLayout({ children }) {
   return (
-    <div className="real-layout">
-      <NavbarReal />
-      <main className="real-layout__main">
+    <div className="green-layout">
+      <NavbarGreen />
+
+      <main className="green-layout__main">
         {children}
       </main>
-      <FooterReal />
+
+      <FooterGreen />
     </div>
   )
 }
