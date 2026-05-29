@@ -1,5 +1,5 @@
-import NavbarReal from '../components/Navbar-real'
-import FooterReal from '../components/Footer-real'
+import NavbarReal from '../components/navbar-real'
+import FooterReal from '../components/footer-real'
 import './RealLayout.css'
 
 export default function RealLayout({ children }) {
