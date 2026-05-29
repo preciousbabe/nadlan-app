@@ -1,5 +1,6 @@
 import { useAuth } from '../../context/AuthContext'
 import useDashboardData from '../../hooks/useDashboardData'
+import useBootstrap from '../../hooks/useBootstrap'
 import { Link } from 'react-router-dom'
 
 function StatCard({ title, value, subtitle, icon, color }) {
@@ -60,9 +61,18 @@ function RecentTransaction({ transaction }) {
   )
 }
 
+import { useDashboard } from '../../context/DashboardContext'
+
 export default function DashboardHome() {
   const { user } = useAuth()
-  const { stats, investments, transactions, loading, refresh } = useDashboardData(user)
+  const { profile } = useDashboard() 
+  const {
+    stats,
+    investments,
+    transactions,
+    loading,
+    refresh
+  } = useDashboardData(user)
 
   if (loading) {
     return (

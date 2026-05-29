@@ -1,30 +1,74 @@
-import { useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { useEffect, useState } from 'react'
+import { supabase } from '../services/supabase'
 
-export default function useBootstrap(user, setProfile, setNotifications) {
+export default function useBootstrap(user) {
+
+  const [profile, setProfile] = useState(null)
+  const [notifications, setNotifications] = useState([])
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [loading, setLoading] = useState(false)
+
   useEffect(() => {
-    if (!user) return
+
+    let active = true
 
     async function load() {
-      // PROFILE
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
 
-      setProfile(profile)
+      // If no user, reset everything
+      if (!user) {
+        setProfile(null)
+        setNotifications([])
+        setIsAdmin(false)
+        setLoading(false)
+        return
+      }
 
-      // NOTIFICATIONS
-      const { data: notifications } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+      setLoading(true)
 
-      setNotifications(notifications || [])
+      try {
+
+        const [{ data: profile }, { data: notifications }] =
+          await Promise.all([
+
+            supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .maybeSingle(),
+
+            supabase
+              .from('notifications')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false })
+     
+          ])
+
+        if (!active) return
+
+        setProfile(profile)
+        setNotifications(notifications || [])
+        setIsAdmin(profile?.role === 'admin')
+
+      } catch (error) {
+        console.error('Bootstrap error:', error)
+      } finally {
+        if (active) setLoading(false)
+      }
     }
 
     load()
+
+    return () => {
+      active = false
+    }
+
   }, [user])
+
+  return {
+    profile,
+    notifications,
+    isAdmin,
+    loading
+  }
 }

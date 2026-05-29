@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import InvestmentCalculator from '../components/InvestmentCalculator'
 import './main.css'
 
 export default function Investments() {
@@ -361,16 +362,16 @@ export default function Investments() {
       </section>
 
       {/* CALCULATOR CTA */}
-      <section className="section-padding" style={{ textAlign: 'center' }}>
-        <div className="container">
-          <span className="label">Plan Ahead</span>
-          <h2 style={{ marginBottom: '1rem' }}>Calculate Your <span className="gold-text">Potential Returns</span></h2>
-          <p style={{ maxWidth: '600px', margin: '0 auto 2rem' }}>
-            Use our investment calculator to project your earnings based on capital, tier, and duration.
-          </p>
-          <button className="btn-primary">Launch Calculator</button>
-        </div>
-      </section>
+     <section className="section-padding" style={{ textAlign: 'center' }}>
+  <div className="container">
+    <span className="label">Plan Ahead</span>
+    <h2 style={{ marginBottom: '1rem' }}>Calculate Your <span className="gold-text">Potential Returns</span></h2>
+    <p style={{ maxWidth: '600px', margin: '0 auto 2rem' }}>
+      Use our investment calculator to project your earnings based on capital, tier, and duration.
+    </p>
+    <InvestmentCalculator />
+  </div>
+</section>
     </div>
   );
 }

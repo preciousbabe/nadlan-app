@@ -1,4 +1,6 @@
 import { useAuth } from '../../context/AuthContext'
+import { useDashboard } from '../../context/DashboardContext'
+import { supabase } from '../../services/supabase'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -50,21 +52,40 @@ function NotificationItem({ notification, onRead }) {
 }
 
 export default function Notifications() {
-  const {
-    notifications,
-    markAsRead,
-    markAllAsRead
-  } = useAuth()
-
+  const { user } = useAuth()
+  const { notifications } = useDashboard()
   const [filter, setFilter] = useState('all')
 
-  const filtered = notifications.filter(n => {
+  // Guard against undefined/null
+  const safeNotifications = notifications || []
+
+  const filtered = safeNotifications.filter(n => {
     if (filter === 'all') return true
     if (filter === 'unread') return !n.read
     return n.type === filter
   })
 
-  const unreadCount = notifications.filter(n => !n.read).length
+  const unreadCount = safeNotifications.filter(n => !n.read).length
+
+  async function markAsRead(id) {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('id', id)
+
+    if (error) console.error('Mark as read error:', error)
+    // useBootstrap will refetch on next mount, or you can trigger a refresh
+  }
+
+  async function markAllAsRead() {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', user.id)
+      .eq('read', false)
+
+    if (error) console.error('Mark all as read error:', error)
+  }
 
   return (
     <div className="dashboard-page">

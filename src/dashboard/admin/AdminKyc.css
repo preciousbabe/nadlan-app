@@ -1,0 +1,150 @@
+/* Admin Panel Styles */
+.admin-kyc .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-kyc .stats-grid.secondary {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.stat-card.pending { border-left: 4px solid #FFC107; }
+.stat-card.verified { border-left: 4px solid #4CAF50; }
+.stat-card.rejected { border-left: 4px solid #FF4D4D; }
+
+.kyc-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin-top: 4px;
+}
+.kyc-badge.unverified { background: #88888820; color: #888; }
+.kyc-badge.pending { background: #FFC10720; color: #b7950b; }
+.kyc-badge.verified { background: #4CAF5020; color: #2e7d32; }
+.kyc-badge.rejected { background: #FF4D4D20; color: #c62828; }
+
+.doc-type {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: #1a1a2e;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.rejection-textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #fff;
+  padding: 0.75rem;
+  margin-top: 1rem;
+  resize: vertical;
+}
+
+.rejection-textarea:focus {
+  outline: none;
+  border-color: #FF4D4D;
+}
+
+.verified-check {
+  color: #4CAF50;
+  font-weight: 500;
+}
+
+.rejected-text {
+  color: #FF4D4D;
+  font-size: 0.875rem;
+}
+
+.doc-preview {
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.doc-loading, .doc-error {
+  padding: 3rem;
+  color: #888;
+}
+
+.upload-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  width: 100%;
+}
+
+.upload-progress .progress-bar-bg {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.upload-progress .progress-bar-fill {
+  height: 100%;
+  background: #4CAF50;
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
+
+.upload-progress span {
+  font-size: 0.75rem;
+  color: #888;
+  min-width: 2.5rem;
+  text-align: right;
+}

@@ -1,7 +1,8 @@
 import { useAuth } from '../../context/AuthContext'
+import { useDashboard } from '../../context/DashboardContext'
 import useDashboardData from '../../hooks/useDashboardData'
 import { supabase } from '../../services/supabase'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 const KYC_STEPS = [
   {
@@ -24,8 +25,7 @@ const KYC_STEPS = [
   }
 ]
 
-
-function KYCStep({ step, status, onUpload, uploading }) {
+function KYCStep({ step, status, onUpload, uploading, progress }) {
   const fileInputRef = useRef(null)
   const statusConfig = {
     pending: { color: '#FFC107', bg: '#FFC10720', label: 'Pending' },
@@ -37,10 +37,24 @@ function KYCStep({ step, status, onUpload, uploading }) {
 
   function handleFileChange(e) {
     const file = e.target.files[0]
-    if (file) {
-      onUpload(step.id, file)
+    if (!file) return
+
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      alert('File too large. Max 5MB.')
+      return
     }
+    const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
+    if (!allowed.includes(file.type)) {
+      alert('Only JPG, PNG, or PDF allowed.')
+      return
+    }
+
+    onUpload(step.id, file)
   }
+
+  const isUploading = uploading[step.id] || false
+  const currentProgress = progress[step.id] || 0
 
   return (
     <div className="kyc-step-card">
@@ -64,15 +78,27 @@ function KYCStep({ step, status, onUpload, uploading }) {
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            accept="image/*,.pdf"
+            accept="image/jpeg,image/png,image/jpg,application/pdf"
             style={{ display: 'none' }}
           />
+          
+          {/* Progress bar */}
+          {isUploading && (
+            <div className="kyc-progress-bar-container">
+              <div 
+                className="kyc-progress-bar-fill" 
+                style={{ width: `${currentProgress}%` }}
+              />
+              <span className="kyc-progress-text">{Math.round(currentProgress)}%</span>
+            </div>
+          )}
+          
           <button 
             className="upload-doc-btn"
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
+            disabled={isUploading}
           >
-            {uploading ? 'Uploading...' : status === 'rejected' ? 'Re-upload Document' : 'Upload Document'}
+            {isUploading ? '⏳ Uploading...' : status === 'rejected' ? '🔄 Re-upload Document' : '📎 Upload Document'}
           </button>
         </div>
       )}
@@ -88,9 +114,13 @@ function KYCStep({ step, status, onUpload, uploading }) {
 
 export default function KYC() {
   const { user } = useAuth()
+  const { profile: contextProfile, updateProfile: updateContextProfile } = useDashboard()
   const { profile, updateProfile } = useDashboardData(user)
-  const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState('')
+
+  // Per-type state instead of single boolean
+  const [uploading, setUploading] = useState({})
+  const [progress, setProgress] = useState({})
 
   const kycStatus = profile?.kyc_status || 'unverified'
   
@@ -100,58 +130,151 @@ export default function KYC() {
     selfie: 'not_submitted'
   })
 
+  // Fetch real doc statuses from Supabase on mount
+  useEffect(() => {
+    if (!user) return
+    async function fetchDocs() {
+      const { data } = await supabase
+        .from('kyc_documents')
+        .select('document_type, status')
+        .eq('user_id', user.id)
+      
+      if (data) {
+        const statuses = { identity: 'not_submitted', address: 'not_submitted', selfie: 'not_submitted' }
+        data.forEach(doc => {
+          statuses[doc.document_type] = doc.status
+        })
+        setDocStatuses(statuses)
+      }
+    }
+    fetchDocs()
+  }, [user])
+
+  if (!user) return <div>Loading...</div>
+
   async function handleUpload(stepId, file) {
-    setUploading(true)
+    // Set only THIS document type as uploading
+    setUploading(prev => ({ ...prev, [stepId]: true }))
+    setProgress(prev => ({ ...prev, [stepId]: 0 }))
     setMessage('')
+
+    // Simulate progress animation
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        const current = prev[stepId] || 0
+        return { ...prev, [stepId]: Math.min(current + Math.random() * 20 + 5, 85) }
+      })
+    }, 200)
 
     try {
       const fileExt = file.name.split('.').pop()
       const fileName = `${user.id}/${stepId}_${Date.now()}.${fileExt}`
       
+      // 1. Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('kyc-documents')
-        .upload(fileName, file)
+        .upload(fileName, file, { upsert: true })
 
       if (uploadError) throw uploadError
 
-      setDocStatuses(prev => ({ ...prev, [stepId]: 'pending' }))
-      setMessage('Document uploaded successfully! Pending verification.')
-      
+      setProgress(prev => ({ ...prev, [stepId]: 90 }))
+
+      // 2. Update or insert DB record
+     const { data: existingDocs, error: selectError } = await supabase
+  .from('kyc_documents')
+  .select('id')
+  .eq('user_id', user.id)
+  .eq('document_type', stepId)
+
+if (selectError) {
+  console.error('Select error:', selectError)
+  throw selectError
+}
+
+const existing = existingDocs?.[0] || null
+      let dbError
+
+      if (existing) {
+        // Update existing record
+        const { error } = await supabase
+          .from('kyc_documents')
+          .update({
+            file_path: fileName,
+            status: 'pending',
+            rejection_reason: null,
+            rejected_at: null,
+            rejected_by: null,
+          })
+          .eq('id', existing.id)
+        dbError = error
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('kyc_documents')
+          .insert({
+            user_id: user.id,
+            document_type: stepId,
+            file_path: fileName,
+            status: 'pending'
+          })
+        dbError = error
+      }
+
+      if (dbError) {
+        // Rollback: delete uploaded file
+        await supabase.storage.from('kyc-documents').remove([fileName])
+        throw dbError
+      }
+
+      setProgress(prev => ({ ...prev, [stepId]: 100 }))
+
+      // Update local state
+      const newStatuses = { ...docStatuses, [stepId]: 'pending' }
+      setDocStatuses(newStatuses)
+
+      setMessage('✅ Document uploaded successfully! Pending verification.')
+
+      // Update profile kyc_status if all required docs submitted
       const allRequiredSubmitted = KYC_STEPS
         .filter(s => s.required)
-        .every(s => {
-          const status = docStatuses[s.id]
-          return status === 'pending' || status === 'verified' || (s.id === stepId)
-        })
-      
-      if (allRequiredSubmitted && kycStatus === 'unverified') {
-        await supabase
-          .from('profiles')
-          .update({ kyc_status: 'pending' })
-          .eq('id', user.id)
-        
-        // FIX: Use updateProfile instead of undefined setProfile
-        updateProfile({ kyc_status: 'pending' })
-      }
+        .every(s => newStatuses[s.id] === 'pending' || newStatuses[s.id] === 'verified')
+
+      if (allRequiredSubmitted && (kycStatus === 'unverified' || kycStatus === 'rejected')) {
+  await supabase
+    .from('profiles')
+    .update({ kyc_status: 'pending' })
+    .eq('id', user.id)
+  
+  updateProfile({ kyc_status: 'pending' })
+  updateContextProfile({ kyc_status: 'pending' })
+}
+      // Reset progress after success
+      setTimeout(() => {
+        setProgress(prev => ({ ...prev, [stepId]: 0 }))
+        setUploading(prev => ({ ...prev, [stepId]: false }))
+      }, 1500)
+
     } catch (err) {
+      clearInterval(progressInterval)
       console.error('Upload error:', err)
-      setMessage('Upload failed. Please try again.')
+      setMessage('❌ Upload failed: ' + (err.message || 'Please try again.'))
+      setProgress(prev => ({ ...prev, [stepId]: 0 }))
+      setUploading(prev => ({ ...prev, [stepId]: false }))
     } finally {
-      setUploading(false)
-      setTimeout(() => setMessage(''), 5000)
+      clearInterval(progressInterval)
     }
   }
 
   const completedSteps = Object.values(docStatuses).filter(s => s === 'verified').length
   const totalRequired = KYC_STEPS.filter(s => s.required).length
-  const progress = Math.round((completedSteps / totalRequired) * 100)
+  const progressPercent = Math.round((completedSteps / totalRequired) * 100)
 
   return (
     <div className="dashboard-page">
       <div className="kyc-header">
-        <h1>KYC Verification</h1>
+        <h1>🔐 KYC Verification</h1>
         {message && (
-          <div className={`message-toast ${message.includes('success') ? 'success' : 'error'}`}>
+          <div className={`message-toast ${message.includes('✅') ? 'success' : 'error'}`}>
             {message}
           </div>
         )}
@@ -182,12 +305,12 @@ export default function KYC() {
       <div className="kyc-progress-section">
         <div className="kyc-progress-header">
           <span>Completion Progress</span>
-          <span>{progress}%</span>
+          <span>{progressPercent}%</span>
         </div>
         <div className="progress-bar-bg">
           <div 
             className="progress-bar-fill"
-            style={{ width: `${progress}%` }}
+            style={{ width: `${progressPercent}%` }}
           />
         </div>
         <p className="kyc-progress-hint">
@@ -203,6 +326,7 @@ export default function KYC() {
             status={docStatuses[step.id]}
             onUpload={handleUpload}
             uploading={uploading}
+            progress={progress}
           />
         ))}
       </div>

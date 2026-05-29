@@ -6,100 +6,58 @@ import {
 } from 'react'
 
 import { supabase } from '../services/supabase'
+import useBootstrap from '../hooks/useBootstrap'
 
 const AuthContext = createContext()
 
 export function AuthProvider({ children }) {
 
   const [user, setUser] = useState(null)
-  const [profile, setProfile] = useState(null)
-  const [notifications, setNotifications] = useState([])
-
-  // ADMIN STATE
-  const [isAdmin, setIsAdmin] = useState(false)
-
   const [loading, setLoading] = useState(true)
+  const [authReady, setAuthReady] = useState(false)
 
-  // computed
-  const unreadCount = notifications.filter(n => !n.read).length
-
-  // -------------------------
-  // FETCH USER DATA (CORE)
-  // -------------------------
-  async function loadUserData(userId) {
-
-    if (!userId) return
-
-    // PROFILE
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-
-    setProfile(profileData)
-
-    // ADMIN CHECK
-    setIsAdmin(profileData?.is_admin || false)
-
-    // NOTIFICATIONS
-    const { data: notifData } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-
-    setNotifications(notifData || [])
-  }
+  // Bootstrap profile, notifications, isAdmin from useBootstrap hook
+  const {
+    profile,
+    notifications,
+    isAdmin,
+    loading: bootstrapLoading
+  } = useBootstrap(user)
 
   // -------------------------
-  // INIT SESSION
+  // INIT AUTH (FAST ONLY)
   // -------------------------
   useEffect(() => {
 
-    supabase.auth.getSession()
-      .then(({ data }) => {
+    let mounted = true
 
-        const sessionUser = data.session?.user ?? null
+    async function init() {
 
-        setUser(sessionUser)
+      const { data, error } = await supabase.auth.getSession()
 
-        if (sessionUser) {
-          loadUserData(sessionUser.id)
-        } else {
-          setProfile(null)
-          setNotifications([])
-          setIsAdmin(false)
-        }
+      if (error) console.error(error)
 
-        setLoading(false)
-      })
+      if (!mounted) return
 
-    // AUTH CHANGES
-    const { data: listener } =
-      supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(data?.session?.user ?? null)
+      setLoading(false)
+      setAuthReady(true)
+    }
 
-        const sessionUser = session?.user ?? null
+    init()
 
-        setUser(sessionUser)
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
 
-        if (sessionUser) {
+      setUser(session?.user ?? null)
+      setAuthReady(true)
 
-          await loadUserData(sessionUser.id)
-
-        } else {
-
-          setProfile(null)
-          setNotifications([])
-          setIsAdmin(false)
-
-        }
-
-        setLoading(false)
-      })
+    })
 
     return () => {
-      listener.subscription.unsubscribe()
+      mounted = false
+      subscription.unsubscribe()
     }
 
   }, [])
@@ -108,16 +66,26 @@ export function AuthProvider({ children }) {
   // AUTH ACTIONS
   // -------------------------
   async function signup(email, password, fullName, username) {
-    return await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          username: username
-        }
-      }
+    // Call Netlify Function — it handles Supabase signup + profile + email
+    const res = await fetch('/api/send-auth-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        password,
+        fullName,
+        username,
+        type: 'signup'
+      })
     })
+
+    const result = await res.json()
+
+    if (!res.ok) {
+      return { error: new Error(result.error || 'Signup failed') }
+    }
+
+    return { data: { user: { id: result.userId } } }
   }
 
   async function login(email, password) {
@@ -128,66 +96,25 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
-
     await supabase.auth.signOut()
-
     setUser(null)
-    setProfile(null)
-    setNotifications([])
-    setIsAdmin(false)
   }
 
-  // -------------------------
-  // NOTIFICATION ACTIONS
-  // -------------------------
-  async function markAsRead(id) {
-
-    await supabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('id', id)
-      .eq('user_id', user.id)
-
-    setNotifications(prev =>
-      prev.map(n =>
-        n.id === id ? { ...n, read: true } : n
-      )
-    )
-  }
-
-  async function markAllAsRead() {
-
-    await supabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('user_id', user.id)
-
-    setNotifications(prev =>
-      prev.map(n => ({ ...n, read: true }))
-    )
-  }
+  // Combined loading state: auth init OR bootstrap loading
+  const isLoading = loading || bootstrapLoading
 
   return (
     <AuthContext.Provider
       value={{
         user,
         profile,
-        notifications,
-        unreadCount,
-
-        // ADMIN
         isAdmin,
-
-        loading,
-
+        notifications,
+        loading: isLoading,
+        authReady,
         signup,
         login,
-        logout,
-
-        markAsRead,
-        markAllAsRead,
-
-        setNotifications
+        logout
       }}
     >
       {children}

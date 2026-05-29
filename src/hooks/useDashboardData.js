@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../services/supabase'
 
 export default function useDashboardData(user) {
+
   const [data, setData] = useState({
     profile: null,
+    isAdmin: false,
     investments: [],
     transactions: [],
     installments: [],
@@ -18,70 +20,113 @@ export default function useDashboardData(user) {
   })
 
   useEffect(() => {
-    if (!user) return
+    if (!user) {
+      setData(prev => ({
+        ...prev,
+        loading: false,
+        profile: null,
+        isAdmin: false,
+        investments: [],
+        transactions: [],
+        installments: [],
+        plans: []
+      }))
+      return
+    }
+
     fetchAllData()
+
   }, [user])
 
   async function fetchAllData() {
+
+    setData(prev => ({
+      ...prev,
+      loading: true
+    }))
+
     try {
-      // 1. Fetch profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
 
-      // 2. Fetch investments with plan details
-      const { data: investments } = await supabase
-        .from('user_investments')
-        .select(`*, investment_plan:investment_plan_id (*)`)
-        .eq('user_id', user.id)
-        .order('started_at', { ascending: false })
+      const [
+        profileRes,
+        investmentsRes,
+        transactionsRes,
+        plansRes
+      ] = await Promise.all([
 
-      // 3. Fetch transactions
-      const { data: transactions } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle(),
 
-      // 4. Fetch installments
-      const investmentIds = investments?.map(i => i.id) || []
+        supabase
+          .from('user_investments')
+          .select(`*, investment_plan:investment_plan_id (*)`)
+          .eq('user_id', user.id),
+
+        supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+
+        supabase
+          .from('investment_plans')
+          .select('*')
+          .eq('status', 'active')
+      ])
+
+      const investments = investmentsRes.data || []
+      const investmentIds = investments.map(i => i.id)
+
       let installments = []
+
       if (investmentIds.length > 0) {
         const { data: instData } = await supabase
           .from('installments')
           .select('*')
           .in('investment_id', investmentIds)
-          .order('due_date', { ascending: true })
+
         installments = instData || []
       }
 
-      // 5. Fetch plans
-      const { data: plans } = await supabase
-        .from('investment_plans')
-        .select('*')
-        .eq('status', 'active')
-        .order('minimum_amount', { ascending: true })
+      const totalInvested =
+        investments.reduce((sum, inv) => sum + (inv.amount || 0), 0)
 
-      // Calculate stats
-      const totalInvested = investments?.reduce((sum, inv) => sum + (inv.amount || 0), 0) || 0
-      const totalRoi = investments?.reduce((sum, inv) => sum + (inv.roi_earned || 0), 0) || 0
-      const activeInvestments = investments?.filter(inv => inv.status === 'active').length || 0
-      const pendingInstallments = installments?.filter(inst => !inst.paid).length || 0
+      const totalRoi =
+        investments.reduce((sum, inv) => sum + (inv.roi_earned || 0), 0)
+
+      const activeInvestments =
+        investments.filter(inv => inv.status === 'active').length
+
+      const pendingInstallments =
+        installments.filter(inst => !inst.paid).length
 
       setData({
-        profile: profile || null,
-        investments: investments || [],
-        transactions: transactions || [],
-        installments: installments || [],
-        plans: plans || [],
-        stats: { totalInvested, totalRoi, activeInvestments, pendingInstallments },
+        profile: profileRes.data || null,
+        isAdmin: profileRes.data?.role === 'admin',
+        investments,
+        transactions: transactionsRes.data || [],
+        installments,
+        plans: plansRes.data || [],
+        stats: {
+          totalInvested,
+          totalRoi,
+          activeInvestments,
+          pendingInstallments
+        },
         loading: false
       })
+
     } catch (error) {
-      console.error('Dashboard data fetch error:', error)
-      setData(prev => ({ ...prev, loading: false }))
+
+      console.error('Dashboard error:', error)
+
+      setData(prev => ({
+        ...prev,
+        loading: false
+      }))
     }
   }
 
@@ -95,13 +140,14 @@ export default function useDashboardData(user) {
       .from('profiles')
       .update(updates)
       .eq('id', user.id)
-    
+
     if (!error) {
       setData(prev => ({
         ...prev,
         profile: { ...prev.profile, ...updates }
       }))
     }
+
     return { error }
   }
 
