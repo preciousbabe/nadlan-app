@@ -1,12 +1,10 @@
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
-import ws from 'ws'
 
 const SITE_URL = 'https://starlit-crepe-92496b.netlify.app'
 
 export async function handler(event) {
   try {
-    // Only POST
     if (event.httpMethod !== 'POST') {
       return {
         statusCode: 405,
@@ -14,7 +12,6 @@ export async function handler(event) {
       }
     }
 
-    // ENV CHECKS
     const SUPABASE_URL = process.env.SUPABASE_URL
     const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY
     const RESEND_KEY = process.env.RESEND_API_KEY
@@ -22,27 +19,22 @@ export async function handler(event) {
     if (!SUPABASE_URL || !SERVICE_ROLE || !RESEND_KEY) {
       return {
         statusCode: 500,
-        body: JSON.stringify({
-          error: 'Missing environment variables'
-        })
+        body: JSON.stringify({ error: 'Missing environment variables' })
       }
     }
 
     const resend = new Resend(RESEND_KEY)
 
-    // ✅ FIXED SUPABASE CLIENT (Node 20 + Netlify safe)
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false
-      },
-      realtime: {
-        transport: ws
       }
     })
 
-    const { email, password, fullName, username, type } = JSON.parse(event.body)
+    const { email, password, fullName, username, type } =
+      JSON.parse(event.body)
 
     if (type !== 'signup') {
       return {
@@ -67,16 +59,21 @@ export async function handler(event) {
 
     const userId = authData.user.id
 
-    // 2. Create profile
+    // 2. Create profile (SAFE UPSERT - NO DUPLICATES EVER)
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
-        id: userId,
-        full_name: fullName,
-        username,
-        kyc_status: 'pending',
-        profile_completed: false
-      })
+      .upsert(
+        {
+          id: userId,
+          full_name: fullName,
+          username,
+          kyc_status: 'pending',
+          profile_completed: false
+        },
+        {
+          onConflict: 'id'
+        }
+      )
 
     if (profileError) throw profileError
 
@@ -98,7 +95,7 @@ export async function handler(event) {
       throw new Error('Missing confirmation URL')
     }
 
-    // 4. Email content
+    // 4. Email HTML
     const html = `
       <h2>Welcome ${fullName}</h2>
       <p>Please confirm your email address to activate your account.</p>
