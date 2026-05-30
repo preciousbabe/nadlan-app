@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
 
 const SITE_URL = 'https://starlit-crepe-92496b.netlify.app'
 
@@ -29,12 +30,15 @@ export async function handler(event) {
 
     const resend = new Resend(RESEND_KEY)
 
-    // ✅ IMPORTANT FIX: disable realtime + auth fully
+    // ✅ FIXED SUPABASE CLIENT (Node 20 + Netlify safe)
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false
+      },
+      realtime: {
+        transport: ws
       }
     })
 
@@ -70,12 +74,13 @@ export async function handler(event) {
         id: userId,
         full_name: fullName,
         username,
-        kyc_status: 'unverified'
+        kyc_status: 'pending',
+        profile_completed: false
       })
 
     if (profileError) throw profileError
 
-    // 3. Generate link
+    // 3. Generate confirmation link
     const { data: linkData, error: linkError } =
       await supabaseAdmin.auth.admin.generateLink({
         type: 'signup',
@@ -93,10 +98,10 @@ export async function handler(event) {
       throw new Error('Missing confirmation URL')
     }
 
-    // 4. Email
+    // 4. Email content
     const html = `
       <h2>Welcome ${fullName}</h2>
-      <p>Please confirm your email:</p>
+      <p>Please confirm your email address to activate your account.</p>
       <a href="${confirmationUrl}">Confirm Account</a>
     `
 
@@ -119,7 +124,7 @@ export async function handler(event) {
     }
 
   } catch (err) {
-    console.error(err)
+    console.error('Function error:', err)
 
     return {
       statusCode: 500,
