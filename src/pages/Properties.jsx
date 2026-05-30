@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import './main.css'
 
-import property1 from '../assets/images/property-1.jpeg'
+import property1 from '../assets/images/Property-1.jpeg'
 import property2 from '../assets/images/property-2.jpeg'
 import property3 from '../assets/images/property-3.jpeg'
 import property4 from '../assets/images/property-4.jpeg'
