@@ -1,10 +1,12 @@
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
 
 const SITE_URL = 'https://starlit-crepe-92496b.netlify.app'
 
 export async function handler(event) {
   try {
+    // Only POST
     if (event.httpMethod !== 'POST') {
       return {
         statusCode: 405,
@@ -12,6 +14,7 @@ export async function handler(event) {
       }
     }
 
+    // ENV CHECKS
     const SUPABASE_URL = process.env.SUPABASE_URL
     const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY
     const RESEND_KEY = process.env.RESEND_API_KEY
@@ -25,16 +28,17 @@ export async function handler(event) {
 
     const resend = new Resend(RESEND_KEY)
 
-   const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  },
-  realtime: {
-    enabled: false   
-  }
-})
+    // ✅ FIXED SUPABASE CLIENT (Node 20 + Netlify safe)
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      },
+      realtime: {
+        transport: ws
+      }
+    })
 
     const { email, password, fullName, username, type } =
       JSON.parse(event.body)
@@ -98,7 +102,7 @@ export async function handler(event) {
       throw new Error('Missing confirmation URL')
     }
 
-    // 4. Email HTML
+    // 4. Email content
     const html = `
       <h2>Welcome ${fullName}</h2>
       <p>Please confirm your email address to activate your account.</p>
