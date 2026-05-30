@@ -1,131 +1,221 @@
 import React, { useState } from 'react'
 import './main.css'
 
+import property1 from '../assets/images/property-1.jpeg'
+import property2 from '../assets/images/property-2.jpeg'
+import property3 from '../assets/images/property-3.jpeg'
+import property4 from '../assets/images/property-4.jpeg'
+import property5 from '../assets/images/property-5.jpeg'
+import property6 from '../assets/images/property-6.jpeg'
+import property7 from '../assets/images/property-7.jpeg'
+import property8 from '../assets/images/property-8.jpeg'
+import property9 from '../assets/images/property-9.jpeg'
+import property10 from '../assets/images/property-10.jpeg'
+import property11 from '../assets/images/property-11.jpeg'
+import property12 from '../assets/images/property-12.png'
+import property13 from '../assets/images/property-13.jpeg'
+
+const propertyImages = [
+  property1,
+  property2,
+  property3,
+  property4,
+  property5,
+  property6,
+  property7,
+  property8,
+  property9,
+  property10,
+  property11,
+  property12,
+  property13
+]
+
 export default function Properties() {
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('newest');
 
   const properties = [
-    {
-      id: 1,
-      title: 'Penthouse Suite, Eko Pearl',
-      location: 'Eko Atlantic, Lagos',
-      type: 'sale',
-      category: 'luxury',
-      price: '₦450,000,000',
-      beds: 4,
-      baths: 5,
-      sqm: 420,
-      image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80',
-      featured: true,
-      agent: 'NADLAN Direct',
-      listed: '2 days ago'
-    },
-    {
-      id: 2,
-      title: 'Modern Villa, Banana Island',
-      location: 'Banana Island, Lagos',
-      type: 'sale',
-      category: 'luxury',
-      price: '₦280,000,000',
-      beds: 5,
-      baths: 6,
-      sqm: 680,
-      image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80',
-      featured: true,
-      agent: 'NADLAN Direct',
-      listed: '1 week ago'
-    },
-    {
-      id: 3,
-      title: 'Executive Apartment, Maitama',
-      location: 'Maitama, Abuja',
-      type: 'rent',
-      category: 'residential',
-      price: '₦8,500,000/year',
-      beds: 3,
-      baths: 4,
-      sqm: 280,
-      image: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80',
-      featured: false,
-      agent: 'NADLAN Direct',
-      listed: '3 days ago'
-    },
-    {
-      id: 4,
-      title: 'Commercial Space, Lekki Phase 1',
-      location: 'Lekki, Lagos',
-      type: 'sale',
-      category: 'commercial',
-      price: '₦150,000,000',
-      beds: 0,
-      baths: 4,
-      sqm: 350,
-      image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80',
-      featured: false,
-      agent: 'NADLAN Direct',
-      listed: '5 days ago'
-    },
-    {
-      id: 5,
-      title: 'Waterfront Duplex, Ikoyi',
-      location: 'Ikoyi, Lagos',
-      type: 'sale',
-      category: 'luxury',
-      price: '₦380,000,000',
-      beds: 6,
-      baths: 7,
-      sqm: 550,
-      image: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80',
-      featured: true,
-      agent: 'NADLAN Direct',
-      listed: '1 day ago'
-    },
-    {
-      id: 6,
-      title: 'Serviced Flat, Wuse 2',
-      location: 'Wuse 2, Abuja',
-      type: 'rent',
-      category: 'residential',
-      price: '₦4,200,000/year',
-      beds: 2,
-      baths: 3,
-      sqm: 180,
-      image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80',
-      featured: false,
-      agent: 'NADLAN Direct',
-      listed: '2 weeks ago'
-    },
-    {
-      id: 7,
-      title: 'Land Plot, Epe Corridor',
-      location: 'Epe, Lagos',
-      type: 'sale',
-      category: 'land',
-      price: '₦25,000,000',
-      beds: 0,
-      baths: 0,
-      sqm: 1200,
-      image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&q=80',
-      featured: false,
-      agent: 'NADLAN Direct',
-      listed: '1 month ago'
-    },
-    {
-      id: 8,
-      title: 'Boutique Office, Victoria Island',
-      location: 'Victoria Island, Lagos',
-      type: 'rent',
-      category: 'commercial',
-      price: '₦18,000,000/year',
-      beds: 0,
-      baths: 3,
-      sqm: 220,
-      image: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=800&q=80',
-      featured: false,
-      agent: 'NADLAN Direct',
-      listed: '4 days ago'
-    },
+  {
+    id: 1,
+    title: 'Penthouse Suite, Eko Pearl',
+    location: 'Eko Atlantic, Lagos',
+    type: 'sale',
+    category: 'luxury',
+    price: '₦450,000,000',
+    beds: 4,
+    baths: 5,
+    sqm: 420,
+    image: propertyImages[9],
+    featured: true,
+    agent: 'NADLAN Direct',
+    listed: '2 days ago'
+  },
+  {
+    id: 2,
+    title: 'Modern Villa, Banana Island',
+    location: 'Banana Island, Lagos',
+    type: 'sale',
+    category: 'luxury',
+    price: '₦280,000,000',
+    beds: 5,
+    baths: 6,
+    sqm: 680,
+    image: propertyImages[1],
+    featured: true,
+    agent: 'NADLAN Direct',
+    listed: '1 week ago'
+  },
+  {
+    id: 3,
+    title: 'Executive Apartment, Maitama',
+    location: 'Maitama, Abuja',
+    type: 'rent',
+    category: 'residential',
+    price: '₦8,500,000/year',
+    beds: 3,
+    baths: 4,
+    sqm: 280,
+    image: propertyImages[2],
+    featured: false,
+    agent: 'NADLAN Direct',
+    listed: '3 days ago'
+  },
+  {
+    id: 4,
+    title: 'Commercial Space, Lekki Phase 1',
+    location: 'Lekki, Lagos',
+    type: 'sale',
+    category: 'commercial',
+    price: '₦150,000,000',
+    beds: 0,
+    baths: 4,
+    sqm: 350,
+    image: propertyImages[3],
+    featured: false,
+    agent: 'NADLAN Direct',
+    listed: '5 days ago'
+  },
+  {
+    id: 5,
+    title: 'Waterfront Duplex, Ikoyi',
+    location: 'Ikoyi, Lagos',
+    type: 'sale',
+    category: 'luxury',
+    price: '₦380,000,000',
+    beds: 6,
+    baths: 7,
+    sqm: 550,
+    image: propertyImages[4],
+    featured: true,
+    agent: 'NADLAN Direct',
+    listed: '1 day ago'
+  },
+  {
+    id: 6,
+    title: 'Exclusive Duplex, Ikoyi',
+    location: 'Ikoyi, Lagos',
+    type: 'sale',
+    category: 'luxury',
+    price: '₦450,000,000',
+    beds: 4,
+    baths: 7,
+    sqm: 650,
+    image: propertyImages[0],
+    featured: true,
+    agent: 'NADLAN Direct',
+    listed: '1 day ago'
+  },
+  {
+    id: 6,
+    title: 'Serviced Flat, Wuse 2',
+    location: 'Wuse 2, Abuja',
+    type: 'rent',
+    category: 'residential',
+    price: '₦4,200,000/year',
+    beds: 2,
+    baths: 3,
+    sqm: 180,
+    image: propertyImages[5],
+    featured: false,
+    agent: 'NADLAN Direct',
+    listed: '2 weeks ago'
+  },
+  {
+    id: 7,
+    title: 'Land Plot, Epe Corridor',
+    location: 'Epe, Lagos',
+    type: 'sale',
+    category: 'land',
+    price: '₦25,000,000',
+    beds: 0,
+    baths: 0,
+    sqm: 1200,
+    image: propertyImages[6],
+    featured: false,
+    agent: 'NADLAN Direct',
+    listed: '1 month ago'
+  },
+  {
+    id: 8,
+    title: 'Boutique Office, Victoria Island',
+    location: 'Victoria Island, Lagos',
+    type: 'rent',
+    category: 'commercial',
+    price: '₦18,000,000/year',
+    beds: 0,
+    baths: 3,
+    sqm: 220,
+    image: propertyImages[7],
+    featured: false,
+    agent: 'NADLAN Direct',
+    listed: '4 days ago'
+  },
+  {
+  id: 11,
+  title: 'Modern Family Duplex, Lekki Phase 1',
+  location: 'Lekki, Lagos',
+  type: 'sale',
+  category: 'residential',
+  price: '₦120,000,000',
+  beds: 4,
+  baths: 5,
+  sqm: 310,
+  image: propertyImages[10],
+  featured: false,
+  agent: 'NADLAN Direct',
+  listed: '6 days ago'
+},
+{
+  id: 12,
+  title: 'High-Rise Commercial Tower Space',
+  location: 'Ikeja GRA, Lagos',
+  type: 'rent',
+  category: 'commercial',
+  price: '₦25,000,000/year',
+  beds: 0,
+  baths: 4,
+  sqm: 480,
+  image: propertyImages[11],
+  featured: false,
+  agent: 'NADLAN Direct',
+  listed: '9 days ago'
+},
+{
+  id: 13,
+  title: 'Premium Estate Land Plot',
+  location: 'Sangotedo, Lagos',
+  type: 'sale',
+  category: 'land',
+  price: '₦38,000,000',
+  beds: 0,
+  baths: 0,
+  sqm: 950,
+  image: propertyImages[12],
+  featured: false,
+  agent: 'NADLAN Direct',
+  listed: '2 weeks ago'
+}
   ];
 
   const featured = properties.filter(p => p.featured);

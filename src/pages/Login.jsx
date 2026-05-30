@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
 
-  const { login, loading } = useAuth()   // Use auth's loading, not local
+  const { login, loading } = useAuth()   
   const navigate = useNavigate()
 
   const [email, setEmail] = useState('')

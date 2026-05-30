@@ -2,6 +2,7 @@ import Navbar from '../components/Navbar'
 import Hero from '../components/Hero'
 import About from '../components/About'
 import WhyInvest from '../components/WhyInvest'
+import Products from '../components/Products'
 import InvestmentTiers from '../components/InvestmentTiers'
 import Team from '../components/Team'
 import MissionVision from '../components/MissionVision'
@@ -26,6 +27,7 @@ export default function Home({
 
       <About />
       <WhyInvest />
+       <Products />
       <InvestmentTiers />
       <Team />
       <MissionVision/>

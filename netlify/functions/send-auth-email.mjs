@@ -167,13 +167,7 @@ export async function handler(event) {
       Or copy and paste this link into your browser:
     </p>
 
-    <p style="
-      word-break:break-all;
-      color:#000000;
-      line-height:1.7;
-    ">
-      ${confirmationUrl}
-    </p>
+    <div style="margin:30px 0;"> <a href="${confirmationUrl}" style=" background:linear-gradient(135deg,#C9A962,#B8954E); color:#0a0a0a; padding:14px 32px; text-decoration:none; border-radius:10px; font-weight:600; display:inline-block; font-size:15px; " > Confirm Email Address </a> </div>
 
     <p style="
       color:#000000;
