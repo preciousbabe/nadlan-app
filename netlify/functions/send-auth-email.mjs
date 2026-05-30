@@ -4,50 +4,45 @@ import { createClient } from '@supabase/supabase-js'
 const SITE_URL = 'https://starlit-crepe-92496b.netlify.app'
 
 export async function handler(event) {
-  console.log('FUNCTION STARTED')
-
   try {
-    // Only allow POST
+    // Only POST
     if (event.httpMethod !== 'POST') {
       return {
         statusCode: 405,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'Method not allowed' })
       }
     }
 
-    // Check env vars safely INSIDE handler
-    if (!process.env.SUPABASE_URL) throw new Error('SUPABASE_URL missing')
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('SUPABASE_SERVICE_ROLE_KEY missing')
-    if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY missing')
+    // ENV CHECKS
+    const SUPABASE_URL = process.env.SUPABASE_URL
+    const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const RESEND_KEY = process.env.RESEND_API_KEY
 
-    const resend = new Resend(process.env.RESEND_API_KEY)
-
-    // 🔥 IMPORTANT: NO realtime, no extras
-    const supabaseAdmin = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false
-        }
+    if (!SUPABASE_URL || !SERVICE_ROLE || !RESEND_KEY) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'Missing environment variables'
+        })
       }
-    )
+    }
 
-    const {
-      email,
-      password,
-      fullName,
-      username,
-      type
-    } = JSON.parse(event.body)
+    const resend = new Resend(RESEND_KEY)
+
+    // ✅ IMPORTANT FIX: disable realtime + auth fully
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      }
+    })
+
+    const { email, password, fullName, username, type } = JSON.parse(event.body)
 
     if (type !== 'signup') {
       return {
         statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'Only signup supported' })
       }
     }
@@ -93,21 +88,23 @@ export async function handler(event) {
     if (linkError) throw linkError
 
     const confirmationUrl = linkData?.properties?.action_link
-    if (!confirmationUrl) throw new Error('No confirmation link generated')
+
+    if (!confirmationUrl) {
+      throw new Error('Missing confirmation URL')
+    }
 
     // 4. Email
     const html = `
-      <h2>Welcome to NADLAN</h2>
-      <p>Hi ${fullName || 'Investor'},</p>
-      <p>Please confirm your account:</p>
-      <a href="${confirmationUrl}">Confirm Email</a>
+      <h2>Welcome ${fullName}</h2>
+      <p>Please confirm your email:</p>
+      <a href="${confirmationUrl}">Confirm Account</a>
     `
 
     // 5. Send email
     const { error: emailError } = await resend.emails.send({
       from: 'onboarding@resend.dev',
       to: email,
-      subject: 'Confirm your NADLAN account',
+      subject: 'Confirm your account',
       html
     })
 
@@ -115,7 +112,6 @@ export async function handler(event) {
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: true,
         userId
@@ -123,13 +119,12 @@ export async function handler(event) {
     }
 
   } catch (err) {
-    console.error('FUNCTION ERROR:', err)
+    console.error(err)
 
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        error: err.message || 'Something went wrong'
+        error: err.message
       })
     }
   }
