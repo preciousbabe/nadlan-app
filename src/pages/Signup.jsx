@@ -42,9 +42,7 @@ export default function Signup() {
             Please check your inbox and click the link to activate your account.
             If you don't see it, check your spam folder.
           </p>
-          <button className="modal-btn" onClick={() => navigate('/login')}>
-            Go to Login
-          </button>
+          
         </div>
       </div>
     )

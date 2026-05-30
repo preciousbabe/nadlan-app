@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 
 import Home from '../pages/Home'
+import Confirm from './auth/Confirm'
 import Properties from '../pages/Properties'
 import Developments from '../pages/Developments'
 import Investments from '../pages/Investments'
@@ -32,7 +33,7 @@ export default function AppRoutes({ currentSection, setCurrentSection }) {
           />
         }
       />
-
+        <Route path="/auth/confirm" element={<Confirm />} />
       {/* REAL ESTATE — uses your existing Navbar/Footer */}
        <Route path="/properties" element={<RealLayout><Properties /></RealLayout>} />
       <Route path="/developments" element={<RealLayout><Developments /></RealLayout>} />
