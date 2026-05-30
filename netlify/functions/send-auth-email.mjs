@@ -25,13 +25,16 @@ export async function handler(event) {
 
     const resend = new Resend(RESEND_KEY)
 
-    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false
-      }
-    })
+   const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false
+  },
+  realtime: {
+    enabled: false   
+  }
+})
 
     const { email, password, fullName, username, type } =
       JSON.parse(event.body)
@@ -67,7 +70,7 @@ export async function handler(event) {
           id: userId,
           full_name: fullName,
           username,
-          kyc_status: 'pending',
+          kyc_status: 'unverified',
           profile_completed: false
         },
         {
