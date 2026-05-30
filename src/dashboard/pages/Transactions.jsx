@@ -49,8 +49,14 @@ function TransactionRow({ transaction }) {
           {isCredit ? '+' : '-'}₦{transaction.amount?.toLocaleString()}
         </span>
         <span className={`transaction-status ${transaction.status}`}>
-          {transaction.status}
-        </span>
+  {transaction.status === 'pending'
+    ? '⏳ Pending Review'
+    : transaction.status === 'completed'
+    ? '✅ Approved'
+    : transaction.status === 'rejected'
+    ? '❌ Rejected'
+    : transaction.status}
+</span>
       </div>
     </div>
   )
@@ -64,6 +70,9 @@ export default function Transactions() {
 
   const filteredTransactions = transactions.filter(tx => {
     if (filter === 'all') return true
+    if (filter === 'pending') return tx.status === 'pending'
+    if (filter === 'completed') return tx.status === 'completed'
+    if (filter === 'rejected') return tx.status === 'rejected'
     if (filter === 'credit') return ['deposit', 'roi_payout', 'refund'].includes(tx.type)
     if (filter === 'debit') return ['investment', 'withdrawal', 'installment_payment'].includes(tx.type)
     return tx.type === filter
@@ -77,13 +86,21 @@ export default function Transactions() {
     return 0
   })
 
-  const totalCredit = transactions
-    .filter(tx => ['deposit', 'roi_payout', 'refund'].includes(tx.type))
-    .reduce((sum, tx) => sum + (tx.amount || 0), 0)
+    const totalCredit = transactions
+  .filter(
+    tx =>
+      tx.status === 'completed' &&
+      ['deposit', 'roi_payout', 'refund'].includes(tx.type)
+  )
+  .reduce((sum, tx) => sum + (tx.amount || 0), 0)
 
-  const totalDebit = transactions
-    .filter(tx => ['investment', 'withdrawal', 'installment_payment'].includes(tx.type))
-    .reduce((sum, tx) => sum + (tx.amount || 0), 0)
+ const totalDebit = transactions
+  .filter(
+    tx =>
+      tx.status === 'completed' &&
+      ['investment', 'withdrawal', 'installment_payment'].includes(tx.type)
+  )
+  .reduce((sum, tx) => sum + (tx.amount || 0), 0)
 
   if (loading) {
     return (
@@ -140,8 +157,12 @@ export default function Transactions() {
             <option value="deposit">Deposits</option>
             <option value="roi_payout">ROI Payouts</option>
             <option value="installment_payment">Installments</option>
+            <option value="pending">Pending Review</option>
+            <option value="completed">Approved</option>
+            <option value="rejected">Rejected</option>
           </select>
         </div>
+
         <div className="filter-group">
           <label>Sort:</label>
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>

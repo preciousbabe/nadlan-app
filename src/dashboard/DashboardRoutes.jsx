@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { DashboardProvider } from '../context/DashboardContext'
 import DashboardLayout from './layouts/DashboardLayout'
 import AdminPayments from "./admin/AdminPayments";
+import AdminProofs from "./admin/AdminProofs";
 import AdminKYC from "./admin/AdminKyc";
 import DashboardHome from './pages/DashboardHome'
 import InvestmentPlans from './pages/InvestmentPlans'
@@ -33,6 +34,7 @@ export default function DashboardRoutes() {
           
           {/* Admin Routes — NO sidebar links, owner navigates directly */}
           <Route path="admin/payments" element={<AdminPayments />} />
+          <Route path="admin/Proofs" element={<AdminProofs />} />
           <Route path="admin/kyc" element={<AdminKYC />} />
         </Routes>
       </DashboardLayout>

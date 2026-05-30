@@ -16,6 +16,7 @@ export default function AdminPayments() {
     bankTransferCount: 0,
     flutterwaveCount: 0
   })
+    const [error, setError] = useState(null)
 
   // Redirect non-admin users
   useEffect(() => {
@@ -30,8 +31,8 @@ export default function AdminPayments() {
     // Real-time subscription for new pending payments
     const subscription = supabase
       .channel('pending-payments')
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'transactions' },
+            .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'transactions' },
         () => fetchPendingPayments()
       )
       .subscribe()
@@ -43,12 +44,13 @@ export default function AdminPayments() {
 
   async function fetchPendingPayments() {
     setLoading(true)
+        setError(null)
     try {
-      const { data, error } = await supabase
+           const { data, error } = await supabase
         .from('transactions')
         .select(`
           *,
-          profiles:user_id (full_name, email, phone),
+          profiles:user_id (full_name,  phone),
           user_investments!inner (
             id,
             amount,
@@ -56,13 +58,18 @@ export default function AdminPayments() {
             status,
             investment_plan_id,
             investment_plan:investment_plan_id (title)
+          ),
+          payment_proofs (
+            id,
+            file_url,
+            status
           )
         `)
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
 
       if (error) throw error
-
+       console.log('PROOFS DATA:', data)
       setPendingPayments(data || [])
       
       // Calculate stats
@@ -74,8 +81,9 @@ export default function AdminPayments() {
         bankTransferCount: bankTransfers.length,
         flutterwaveCount: flutterwave.length
       })
-    } catch (err) {
+       } catch (err) {
       console.error('Fetch error:', err)
+      setError(err.message || 'Failed to load payments')
     } finally {
       setLoading(false)
     }
@@ -97,15 +105,18 @@ export default function AdminPayments() {
       if (txError) throw txError
 
       // 2. Activate the investment
+            const investment = Array.isArray(transaction.user_investments) 
+        ? transaction.user_investments[0] 
+        : transaction.user_investments
+
       const { error: invError } = await supabase
         .from('user_investments')
         .update({ status: 'active' })
-        .eq('id', transaction.user_investments[0]?.id || transaction.user_investments.id)
+        .eq('id', investment.id)
 
       if (invError) throw invError
 
       // 3. Mark first installment as paid if installment plan
-      const investment = transaction.user_investments[0] || transaction.user_investments
       if (investment?.payment_type === 'installment') {
         await supabase
           .from('installments')
@@ -113,6 +124,14 @@ export default function AdminPayments() {
           .eq('investment_id', investment.id)
           .order('due_date', { ascending: true })
           .limit(1)
+      }
+
+            // If this is an installment payment (not initial investment), mark the specific installment
+      if (transaction.type === 'installment_payment' && transaction.metadata?.installment_id) {
+        await supabase
+          .from('installments')
+          .update({ paid: true, paid_at: new Date().toISOString() })
+          .eq('id', transaction.metadata.installment_id)
       }
 
       // 4. Send notification to user (you can integrate email/SMS here)
@@ -123,6 +142,13 @@ export default function AdminPayments() {
         type: 'payment_verified',
         read: false
       })
+
+            // Update payment_proofs if exists
+         await supabase
+        .from('payment_proofs')
+        .update({ status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user.id })
+        .eq('transaction_id', transaction.id)
+
 
       // Refresh list
       await fetchPendingPayments()
@@ -141,19 +167,23 @@ export default function AdminPayments() {
       await supabase
         .from('transactions')
         .update({ 
-          status: 'failed',
+          status: 'rejected',
           rejection_reason: reason,
           rejected_at: new Date().toISOString(),
           rejected_by: user.id
         })
         .eq('id', transaction.id)
 
-      // 2. Cancel the investment
-      const investment = transaction.user_investments[0] || transaction.user_investments
-      await supabase
-        .from('user_investments')
-        .update({ status: 'cancelled' })
-        .eq('id', investment.id)
+            // 2. Cancel the investment only if it's an initial investment, not installment payment
+      if (transaction.type !== 'installment_payment') {
+        const investment = Array.isArray(transaction.user_investments) 
+          ? transaction.user_investments[0] 
+          : transaction.user_investments
+        await supabase
+          .from('user_investments')
+          .update({ status: 'cancelled' })
+          .eq('id', investment.id)
+      }
 
       // 3. Notify user
       await supabase.from('notifications').insert({
@@ -164,6 +194,12 @@ export default function AdminPayments() {
         read: false
       })
 
+            // Update payment_proofs if exists
+      await supabase
+        .from('payment_proofs')
+        .update({ status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user.id, rejection_reason: reason })
+        .eq('transaction_id', transaction.id)
+
       await fetchPendingPayments()
     } catch (err) {
       console.error('Rejection error:', err)
@@ -173,9 +209,12 @@ export default function AdminPayments() {
     }
   }
 
-  const filteredPayments = pendingPayments.filter(p => {
+   const filteredPayments = pendingPayments.filter(p => {
     if (filter === 'all') return true
-    return p.payment_method === filter
+    if (filter === 'bank_transfer') return p.payment_method === 'bank_transfer'
+    if (filter === 'flutterwave') return p.payment_method === 'flutterwave'
+    if (filter === 'installment_payment') return p.type === 'installment_payment'
+    return true
   })
 
   if (!isAdmin) return null
@@ -186,6 +225,12 @@ export default function AdminPayments() {
         <h1>🔐 Payment Verification</h1>
         <p className="admin-subtitle">Review and verify pending investment payments</p>
       </div>
+
+           {error && (
+        <div className="error-state" style={{ color: '#FF4D4D', padding: '20px', textAlign: 'center', background: 'rgba(255,77,77,0.1)', borderRadius: '10px', margin: '0 20px 20px' }}>
+          ⚠️ {error}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="stats-grid">
@@ -203,7 +248,7 @@ export default function AdminPayments() {
         </div>
         <div className="stat-card flutterwave">
           <span className="stat-number">{stats.flutterwaveCount}</span>
-          <span className="stat-label">Flutterwave Issues</span>
+             <span className="stat-label">Flutterwave</span>
         </div>
       </div>
 
@@ -214,6 +259,12 @@ export default function AdminPayments() {
           onClick={() => setFilter('all')}
         >
           All Pending
+        </button>
+                <button 
+          className={filter === 'installment_payment' ? 'active' : ''} 
+          onClick={() => setFilter('installment_payment')}
+        >
+          💳 Installments
         </button>
         <button 
           className={filter === 'bank_transfer' ? 'active' : ''} 
@@ -254,9 +305,11 @@ export default function AdminPayments() {
             </thead>
             <tbody>
               {filteredPayments.map(tx => {
-                const investment = tx.user_investments?.[0] || tx.user_investments
+                  const investment = Array.isArray(tx.user_investments) 
+                  ? tx.user_investments[0] 
+                  : tx.user_investments
                 const profile = tx.profiles
-                const proofUrl = tx.metadata?.proof_url
+                 const proofUrl = tx.payment_proofs?.[0]?.file_url || tx.metadata?.proof_url || null
                 
                 return (
                   <tr key={tx.id} className={`payment-row ${tx.payment_method}`}>
@@ -283,14 +336,12 @@ export default function AdminPayments() {
                     </td>
                     <td className="proof-cell">
                       {proofUrl ? (
-                        <a 
-                          href={proofUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="proof-link"
-                        >
-                          📄 View Proof
-                        </a>
+                        <button
+                        className="proof-link"
+                        onClick={() => window.open(proofUrl, '_blank')}
+                      >
+                        📄 View Proof
+                      </button>
                       ) : (
                         <span className="no-proof">No proof</span>
                       )}

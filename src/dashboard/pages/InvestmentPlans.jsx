@@ -213,17 +213,20 @@ function FlutterwavePayment({ amount, email, phone, name, onSuccess, onClose }) 
         description: `Investment payment of ₦${amount.toLocaleString()}`,
         logo: 'https://your-logo-url.com/logo.png',
       },
-      callback: function (response) {
-        if (response.status === 'successful') {
-          onSuccess({
-            transactionId: response.transaction_id,
-            txRef: txRef,
-            amount: amount,
-            status: 'completed',
-            paymentMethod: 'flutterwave'
-          })
-        }
-      },
+        callback: function (response) {
+  if (response.status === 'successful') {
+    setTimeout(() => {
+      onSuccess({
+        transactionId: response.transaction_id,
+        txRef: txRef,
+        amount: amount,
+        status: 'pending',  
+        paymentMethod: 'flutterwave'
+      })
+    }, 500)
+  }
+},
+
       onclose: function () {
         onClose()
       },
@@ -241,7 +244,7 @@ function FlutterwavePayment({ amount, email, phone, name, onSuccess, onClose }) 
   )
 }
 
-function BankTransferOption({ amount, onSubmit, onCancel }) {
+function BankTransferOption({ amount, onSubmit, onCancel, user }) {
   const [proofFile, setProofFile] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -254,7 +257,7 @@ function BankTransferOption({ amount, onSubmit, onCancel }) {
     setUploading(true)
     try {
       const fileExt = proofFile.name.split('.').pop()
-      const fileName = `proofs/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`
+      const fileName = `proof-of-payment/${user.id}/${Date.now()}.${fileExt}`
       
       const { error: uploadError } = await supabase.storage
         .from('payment-proofs')
@@ -262,16 +265,21 @@ function BankTransferOption({ amount, onSubmit, onCancel }) {
 
       if (uploadError) throw uploadError
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('payment-proofs')
-        .getPublicUrl(fileName)
+     const { data, error: signedError } = await supabase.storage
+     .from('payment-proofs')
+     .createSignedUrl(fileName, 60 * 60 * 24 * 7) // 7 days
 
-      onSubmit({
-        proofUrl: publicUrl,
-        amount: amount,
-        status: 'pending_verification',
-        paymentMethod: 'bank_transfer'
-      })
+     if (signedError) throw signedError
+
+      const signedUrl = data.signedUrl
+
+          onSubmit({
+      proof_path: fileName,
+      proof_url: signedUrl,
+      amount: amount,
+      paymentMethod: 'bank_transfer'
+     })
+
     } catch (err) {
       console.error('Upload error:', err)
       alert('Failed to upload proof. Please try again.')
@@ -367,7 +375,6 @@ function InvestmentModal({ tier, onClose, user, profile }) {
   const [paymentMethod, setPaymentMethod] = useState('flutterwave') // 'flutterwave' | 'bank_transfer'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [paymentSuccess, setPaymentSuccess] = useState(null)
   const [pendingProof, setPendingProof] = useState(false)
   const navigate = useNavigate()
 
@@ -413,7 +420,7 @@ function InvestmentModal({ tier, onClose, user, profile }) {
       }
 
       // 2. Create user investment
-      const investmentStatus = paymentData.paymentMethod === 'bank_transfer' ? 'pending_payment' : 'active'
+      
       const { data: investment, error: invError } = await supabase
         .from('user_investments')
         .insert({
@@ -421,7 +428,7 @@ function InvestmentModal({ tier, onClose, user, profile }) {
           investment_plan_id: planId,
           amount: amount,
           payment_type: paymentType,
-          status: investmentStatus,
+          status: 'pending_payment',  
           progress: 0,
           roi_earned: 0
         })
@@ -430,32 +437,55 @@ function InvestmentModal({ tier, onClose, user, profile }) {
 
       if (invError) throw invError
 
-      // 3. Record transaction
-      const transactionData = {
+      // 3. Record transaction — ALWAYS pending
+            const transactionData = {
         user_id: user.id,
         type: 'investment',
-        amount: paymentData.amount,
-        status: paymentData.paymentMethod === 'bank_transfer' ? 'pending' : 'completed',
+        amount: amount,
+        status: 'pending',  
         reference: paymentData.txRef || `BT-${Date.now()}`,
         payment_method: paymentData.paymentMethod,
         metadata: { 
           tier: tier.name, 
           payment_type: paymentType,
-          ...(paymentData.proofUrl && { proof_url: paymentData.proofUrl })
+          flutterwave_tx_id: paymentData.transactionId || null,
+          ...(paymentData.proof_url && { proof_url: paymentData.proof_url }),
+          ...(paymentData.proof_path && { proof_path: paymentData.proof_path })
         }
       }
 
-      if (paymentData.transactionId) {
-        transactionData.flutterwave_tx_id = paymentData.transactionId
+      
+      const { data: txRecord, error: txError } = await supabase
+        .from('transactions')
+        .insert(transactionData)
+        .select()
+        .single()
+      
+      if (txError) throw txError
+
+      // 4. For bank transfer: also insert into payment_proofs table
+      if (paymentData.paymentMethod === 'bank_transfer' && paymentData.proof_path) {
+        const { error: proofError } = await supabase
+  .from('payment_proofs')
+  .insert({
+    user_id: user.id,
+    transaction_id: txRecord.id,
+    investment_id: investment.id,
+    file_path: paymentData.proof_path,
+    file_url: paymentData.proof_url,
+    status: 'pending'
+  })
+
+if (proofError) {
+  console.error('PAYMENT_PROOF ERROR:', proofError)
+  throw proofError
+}
       }
 
-      await supabase.from('transactions').insert(transactionData)
-
-      // 4. Create installments
+      // 5. Create installments (same as before)
       if (paymentType === 'installment') {
         const installmentAmount = Math.round(amount / installmentCount)
         const installments = []
-        
         for (let i = 1; i <= installmentCount; i++) {
           const dueDate = new Date()
           dueDate.setMonth(dueDate.getMonth() + i)
@@ -465,25 +495,28 @@ function InvestmentModal({ tier, onClose, user, profile }) {
               ? amount - (installmentAmount * (installmentCount - 1)) 
               : installmentAmount,
             due_date: dueDate.toISOString().split('T')[0],
-            paid: i === 1 && paymentData.paymentMethod === 'flutterwave'
+            paid: false
           })
         }
+        const { error: installmentError } = await supabase
+  .from('installments')
+  .insert(installments)
 
-        await supabase.from('installments').insert(installments)
+if (installmentError) {
+  console.error('INSTALLMENT ERROR:', installmentError)
+  throw installmentError
+}
       }
 
-      // 5. Update profile
+      // 6. Update profile (same)
       await supabase
         .from('profiles')
         .update({ investment_goal: tier.name })
         .eq('id', user.id)
 
-      if (paymentData.paymentMethod === 'bank_transfer') {
-        setPendingProof(true)
-      } else {
-        setPaymentSuccess(true)
-        setTimeout(() => navigate('/dashboard/portfolio'), 2000)
-      }
+      // 7. Show pending state for BOTH methods
+      setPendingProof(true)  
+
     } catch (err) {
       console.error('Investment error:', err)
       setError(err.message || 'Failed to create investment. Please contact support.')
@@ -491,6 +524,7 @@ function InvestmentModal({ tier, onClose, user, profile }) {
       setLoading(false)
     }
   }
+
 
   if (pendingProof) {
     return (
@@ -501,10 +535,10 @@ function InvestmentModal({ tier, onClose, user, profile }) {
           </div>
           <div className="modal-body" style={{ textAlign: 'center', padding: '40px' }}>
             <div style={{ fontSize: '64px', marginBottom: '20px' }}>🏦</div>
-            <h3>Your proof has been submitted</h3>
+                        <h3>Payment submitted for verification</h3>
             <p style={{ color: '#aaa', marginTop: '10px', lineHeight: '1.6' }}>
-              Our team will verify your bank transfer within 1-2 business hours.<br/>
-              You'll receive an email notification once confirmed.
+              Our team will verify your payment within 1-2 business hours.<br/>
+              You'll receive a notification once confirmed.
             </p>
             <button 
               className="confirm-invest-btn"
@@ -513,30 +547,6 @@ function InvestmentModal({ tier, onClose, user, profile }) {
             >
               Go to Portfolio
             </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (paymentSuccess) {
-    return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content" onClick={e => e.stopPropagation()}>
-          <div className="modal-header" style={{ background: 'linear-gradient(135deg, #4CAF50, #45a049)' }}>
-            <h2>🎉 Payment Successful!</h2>
-          </div>
-          <div className="modal-body" style={{ textAlign: 'center', padding: '40px' }}>
-            <div style={{ fontSize: '64px', marginBottom: '20px' }}>✅</div>
-            <h3>Your {tier.name} investment has been activated</h3>
-            <p style={{ color: '#aaa', marginTop: '10px' }}>
-              {paymentType === 'installment' 
-                ? `First installment of ₦${firstInstallmentAmount.toLocaleString()} received. Remaining ${installmentCount - 1} installments scheduled.`
-                : `Full payment of ₦${amount.toLocaleString()} received.`}
-            </p>
-            <p style={{ color: '#888', marginTop: '20px', fontSize: '14px' }}>
-              Redirecting to your portfolio...
-            </p>
           </div>
         </div>
       </div>
@@ -642,10 +652,11 @@ function InvestmentModal({ tier, onClose, user, profile }) {
             />
           ) : (
             <BankTransferOption
-              amount={firstInstallmentAmount}
-              onSubmit={handlePaymentSuccess}
-              onCancel={() => setPaymentMethod('flutterwave')}
-            />
+  amount={firstInstallmentAmount}
+  user={user}
+  onSubmit={handlePaymentSuccess}
+  onCancel={() => setPaymentMethod('flutterwave')}
+/>
           )}
         </div>
       </div>

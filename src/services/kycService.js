@@ -21,29 +21,41 @@ export async function uploadKycDocument({
   onProgress
 }) {
   try {
+    if (!userId) {
+      throw new Error('Missing user ID')
+    }
+
+    if (!documentType) {
+      throw new Error('Missing document type')
+    }
+
     if (!file) {
       throw new Error('No file selected')
     }
 
     // =========================
-    // Validate type
+    // Validate file type
     // =========================
     if (!ALLOWED_TYPES.includes(file.type)) {
-      throw new Error('Only JPG, PNG, WEBP, and PDF files are allowed')
+      throw new Error(
+        'Only JPG, PNG, WEBP, and PDF files are allowed'
+      )
     }
 
     // =========================
-    // Validate size
+    // Validate file size
     // =========================
     if (file.size > MAX_FILE_SIZE) {
-      throw new Error('File size must be less than 5MB')
+      throw new Error(
+        'File size must be less than 5MB'
+      )
     }
 
-    const fileExt = file.name.split('.').pop()
+    const fileExt = file.name.split('.').pop()?.toLowerCase()
 
-    const fileName = `${userId}/${documentType}_${Date.now()}.${fileExt}`
+    const fileName =
+      `${userId}/${documentType}_${Date.now()}.${fileExt}`
 
-    // fake progress start
     if (onProgress) {
       onProgress(15)
     }
@@ -52,23 +64,32 @@ export async function uploadKycDocument({
     // Upload file
     // =========================
     console.log('======================')
-console.log('STARTING FILE UPLOAD')
-console.log('userId:', userId)
-console.log('documentType:', documentType)
-console.log('fileName:', fileName)
-console.log('file:', file)
+    console.log('STARTING FILE UPLOAD')
+    console.log('userId:', userId)
+    console.log('documentType:', documentType)
+    console.log('fileName:', fileName)
+    console.log('file:', file)
+    console.log('bucket:', 'kyc-documents')
+    console.log('======================')
 
-const { data: uploadData, error: uploadError } = await supabase.storage
-  .from('kyc-documents')
-  .upload(fileName, file, {
-    upsert: true
-  })
+    const { data: uploadData, error: uploadError } =
+      await supabase.storage
+        .from('kyc-documents')
+        .upload(fileName, file, {
+          upsert: true
+        })
 
-console.log('UPLOAD DATA:', uploadData)
-console.log('UPLOAD ERROR:', uploadError)
-console.log('======================')
+    console.log('UPLOAD DATA:', uploadData)
+    console.log('UPLOAD ERROR:', uploadError)
 
     if (uploadError) {
+      console.error('======================')
+      console.error('STORAGE ERROR')
+      console.error(uploadError)
+      console.error('MESSAGE:', uploadError.message)
+      console.error('STATUS:', uploadError.statusCode)
+      console.error('======================')
+
       throw uploadError
     }
 
@@ -81,21 +102,27 @@ console.log('======================')
     // =========================
     const { data, error: dbError } = await supabase
       .from('kyc_documents')
-      .insert([
+      .upsert(
         {
           user_id: userId,
           document_type: documentType,
           file_path: fileName,
           status: 'pending'
+        },
+        {
+          onConflict: 'user_id,document_type'
         }
-      ])
+      )
       .select()
       .single()
 
     if (dbError) {
-      console.error('DB INSERT ERROR:', dbError)
+      console.error('======================')
+      console.error('DB INSERT ERROR')
+      console.error(dbError)
+      console.error('======================')
 
-      // rollback upload
+      // rollback uploaded file
       await supabase.storage
         .from('kyc-documents')
         .remove([fileName])
@@ -109,27 +136,33 @@ console.log('======================')
 
     return data
   } catch (err) {
-  console.error('======================')
-  console.error('FULL KYC ERROR:', err)
-  console.error('MESSAGE:', err.message)
-  console.error('DETAILS:', err.details)
-  console.error('HINT:', err.hint)
-  console.error('CODE:', err.code)
-  console.error('======================')
+    console.error('======================')
+    console.error('FULL KYC ERROR')
+    console.error(err)
+    console.error('MESSAGE:', err?.message)
+    console.error('DETAILS:', err?.details)
+    console.error('HINT:', err?.hint)
+    console.error('CODE:', err?.code)
+    console.error('NAME:', err?.name)
+    console.error('======================')
 
-  throw err
-}
+    throw err
+  }
 }
 
 /**
  * Generate signed URL for private bucket
  */
-export async function getKycDocumentUrl(filePath, expiresIn = 600) {
+export async function getKycDocumentUrl(
+  filePath,
+  expiresIn = 600
+) {
   const { data, error } = await supabase.storage
     .from('kyc-documents')
     .createSignedUrl(filePath, expiresIn)
 
   if (error) {
+    console.error('SIGNED URL ERROR:', error)
     throw error
   }
 

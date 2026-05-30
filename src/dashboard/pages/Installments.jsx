@@ -1,7 +1,9 @@
 import { useAuth } from '../../context/AuthContext'
 import useDashboardData from '../../hooks/useDashboardData'
 import { supabase } from '../../services/supabase'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+
 
 function InstallmentCard({ installment, investment, onPay }) {
   const [paying, setPaying] = useState(false)
@@ -45,13 +47,14 @@ function InstallmentCard({ installment, investment, onPay }) {
         </div>
       </div>
 
-      {!installment.paid && (
+          {!installment.paid && (
         <button 
-          className="pay-installment-btn"
+          className={`pay-installment-btn ${isOverdue ? 'overdue-btn' : ''}`}
           onClick={handlePay}
-          disabled={paying}
+          disabled={paying || isOverdue}
+          title={isOverdue ? 'Contact support for overdue payments' : ''}
         >
-          {paying ? 'Processing...' : `Pay ₦${installment.amount?.toLocaleString()}`}
+          {paying ? 'Opening Payment...' : isOverdue ? 'Contact Support' : `Pay Installment`}
         </button>
       )}
     </div>
@@ -63,46 +66,60 @@ export default function Installments() {
   const { installments, investments, loading, refresh } = useDashboardData(user)
   const [filter, setFilter] = useState('all')
   const [message, setMessage] = useState('')
+  const navigate = useNavigate()
 
-  async function handlePayInstallment(installment) {
+   useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(''), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [message])
+
+   async function handlePayInstallment(installment) {
+    const investment = investments.find(inv => inv.id === installment.investment_id)
+    const method = window.confirm('Pay with Flutterwave (Card)? Click Cancel for Bank Transfer.') 
+         ? 'flutterwave' : 'bank_transfer'
+    
     try {
-      // Update installment as paid
-      const { error } = await supabase
+      // 1. Create a pending transaction for this installment payment
+      const { data: tx, error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: 'installment_payment',
+          amount: installment.amount,
+          status: 'pending',
+          reference: `INST-${installment.id}-${Date.now()}`,
+         payment_method: method, 
+          metadata: {
+            installment_id: installment.id,
+            investment_id: investment.id,
+            tier: investment?.investment_plan?.title || 'Investment'
+          }
+        })
+        .select()
+        .single()
+
+      if (txError) throw txError
+
+            // After creating transaction:
+      await supabase
         .from('installments')
-        .update({ paid: true })
+        .update({ transaction_id: tx.id })
         .eq('id', installment.id)
 
-      if (error) throw error
-
-      // Create transaction record
-      await supabase.from('transactions').insert({
-        user_id: user.id,
-        type: 'installment_payment',
-        amount: installment.amount,
-        status: 'completed',
-        reference: `INST-${installment.id.slice(0, 8)}`
-      })
-
-      // Update investment progress
-      const investment = investments.find(inv => inv.id === installment.investment_id)
-      if (investment) {
-        const totalInstallments = installments.filter(i => i.investment_id === investment.id).length
-        const paidInstallments = installments.filter(i => i.investment_id === investment.id && (i.id === installment.id || i.paid)).length
-        const newProgress = Math.round((paidInstallments / totalInstallments) * 100)
-
-        await supabase
-          .from('user_investments')
-          .update({ progress: newProgress })
-          .eq('id', investment.id)
-      }
-
-      setMessage('Payment successful!')
-      setTimeout(() => setMessage(''), 3000)
-      refresh()
+      // 2. Redirect to payment page or open payment modal
+      setMessage('Installment payment submitted. Awaiting admin approval.')
+      
+      // 3. Refresh data after a moment
+           setTimeout(() => {
+        if (typeof refresh === 'function') refresh()
+        else window.location.reload()
+       }, 2000)
+      
     } catch (err) {
-      console.error('Payment error:', err)
-      setMessage('Payment failed. Please try again.')
-      setTimeout(() => setMessage(''), 3000)
+      console.error('Installment payment error:', err)
+      setMessage('Payment failed: ' + (err.message || 'Unknown error'))
     }
   }
 
