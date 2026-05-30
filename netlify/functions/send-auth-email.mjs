@@ -104,10 +104,115 @@ export async function handler(event) {
 
     // 4. Email content
     const html = `
-      <h2>Welcome ${fullName}</h2>
-      <p>Please confirm your email address to activate your account.</p>
-      <a href="${confirmationUrl}">Confirm Account</a>
-    `
+<div style="
+  background:#0a0a0a;
+  padding:40px 20px;
+  font-family:Arial, Helvetica, sans-serif;
+  color:#ffffff;
+">
+  <div style="
+    max-width:600px;
+    margin:0 auto;
+    background:#111111;
+    border:1px solid rgba(201,169,98,0.2);
+    border-radius:16px;
+    padding:40px;
+  ">
+
+    <h2 style="
+      margin-top:0;
+      color:#C9A962;
+      font-size:28px;
+      font-weight:700;
+    ">
+      Welcome to NADLAN
+    </h2>
+
+    <p style="
+      font-size:16px;
+      line-height:1.7;
+      color:#ffffff;
+    ">
+      Hi ${fullName},
+    </p>
+
+    <p style="
+      font-size:16px;
+      line-height:1.7;
+      color:#d9d9d9;
+    ">
+      Thank you for creating your NADLAN investment account.
+      To activate your account and start building your real estate portfolio,
+      please confirm your email address.
+    </p>
+
+    <div style="margin:30px 0;">
+      <a
+        href="${confirmationUrl}"
+        style="
+          background:linear-gradient(135deg,#C9A962,#B8954E);
+          color:#0a0a0a;
+          padding:14px 32px;
+          text-decoration:none;
+          border-radius:10px;
+          font-weight:600;
+          display:inline-block;
+          font-size:15px;
+        "
+      >
+        Confirm Email Address
+      </a>
+    </div>
+
+    <p style="
+      color:#d9d9d9;
+      line-height:1.7;
+    ">
+      Or copy and paste this link into your browser:
+    </p>
+
+    <p style="
+      word-break:break-all;
+      color:#C9A962;
+      line-height:1.7;
+    ">
+      ${confirmationUrl}
+    </p>
+
+    <p style="
+      color:#888;
+      font-size:13px;
+      margin-top:30px;
+      line-height:1.6;
+    ">
+      This link expires in 24 hours. If you didn't create an account with
+      NADLAN, you can safely ignore this email.
+    </p>
+
+    <hr style="
+      border:none;
+      border-top:1px solid rgba(255,255,255,0.1);
+      margin:30px 0;
+    ">
+
+    <p style="
+      color:#888;
+      font-size:12px;
+      line-height:1.8;
+      margin-bottom:0;
+    ">
+      <strong style="color:#C9A962;">
+        NADLAN Investment Limited
+      </strong>
+      <br>
+      Real Estate & Green Energy Investment Platform
+      <br>
+      📧 support@nadlan.com | 🌐 www.nadlan.com
+    </p>
+
+  </div>
+</div>
+`
 
     // 5. Send email
     const { error: emailError } = await resend.emails.send({
