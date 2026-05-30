@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 
 import Home from '../pages/Home'
-import Confirm from './auth/Confirm'
+import Confirm from '../auth/Confirm'
 import Properties from '../pages/Properties'
 import Developments from '../pages/Developments'
 import Investments from '../pages/Investments'
