@@ -111,7 +111,7 @@ export async function handler(event) {
 
     // 5. Send email
     const { error: emailError } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: 'NADLAN <no-reply@precifio.app>'
       to: email,
       subject: 'Confirm your account',
       html
