@@ -102,26 +102,22 @@ export async function handler(event) {
       throw new Error('Missing confirmation URL')
     }
 
-    // 4. Email content
-    const html = `
+   const html = `
 <div style="
-  background:#0a0a0a;
+  background:#ffffff;
   padding:40px 20px;
   font-family:Arial, Helvetica, sans-serif;
-  color:#ffffff;
+  color:#000000;
 ">
+
   <div style="
     max-width:600px;
     margin:0 auto;
-    background:#111111;
-    border:1px solid rgba(201,169,98,0.2);
-    border-radius:16px;
-    padding:40px;
   ">
 
     <h2 style="
       margin-top:0;
-      color:#C9A962;
+      color:#000000;
       font-size:28px;
       font-weight:700;
     ">
@@ -131,7 +127,7 @@ export async function handler(event) {
     <p style="
       font-size:16px;
       line-height:1.7;
-      color:#ffffff;
+      color:#000000;
     ">
       Hi ${fullName},
     </p>
@@ -139,48 +135,48 @@ export async function handler(event) {
     <p style="
       font-size:16px;
       line-height:1.7;
-      color:#d9d9d9;
+      color:#000000;
     ">
       Thank you for creating your NADLAN investment account.
       To activate your account and start building your real estate portfolio,
       please confirm your email address.
     </p>
 
-    <div style="margin:30px 0;">
+    <p style="
+      font-size:16px;
+      line-height:1.7;
+      color:#000000;
+    ">
       <a
         href="${confirmationUrl}"
         style="
-          background:linear-gradient(135deg,#C9A962,#B8954E);
-          color:#0a0a0a;
-          padding:14px 32px;
-          text-decoration:none;
-          border-radius:10px;
+          color:#000000;
+          text-decoration:underline;
           font-weight:600;
-          display:inline-block;
-          font-size:15px;
         "
       >
         Confirm Email Address
       </a>
-    </div>
+    </p>
 
     <p style="
-      color:#d9d9d9;
+      color:#000000;
       line-height:1.7;
+      margin-top:30px;
     ">
       Or copy and paste this link into your browser:
     </p>
 
     <p style="
       word-break:break-all;
-      color:#C9A962;
+      color:#000000;
       line-height:1.7;
     ">
       ${confirmationUrl}
     </p>
 
     <p style="
-      color:#888;
+      color:#000000;
       font-size:13px;
       margin-top:30px;
       line-height:1.6;
@@ -191,17 +187,17 @@ export async function handler(event) {
 
     <hr style="
       border:none;
-      border-top:1px solid rgba(255,255,255,0.1);
+      border-top:1px solid #dddddd;
       margin:30px 0;
     ">
 
     <p style="
-      color:#888;
+      color:#000000;
       font-size:12px;
       line-height:1.8;
       margin-bottom:0;
     ">
-      <strong style="color:#C9A962;">
+      <strong>
         NADLAN Investment Limited
       </strong>
       <br>
@@ -211,6 +207,7 @@ export async function handler(event) {
     </p>
 
   </div>
+
 </div>
 `
 
