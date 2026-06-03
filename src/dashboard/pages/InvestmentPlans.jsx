@@ -85,12 +85,10 @@ const TIERS = [
   }
 ]
 
-// NADLAN corporate bank account details
 const BANK_DETAILS = {
   bankName: 'Guaranty Trust Bank (GTBank)',
   accountName: 'NADLAN Investment Limited',
   accountNumber: '0123456789',
-  // Add more banks if needed
   alternativeBanks: [
     { bankName: 'Zenith Bank', accountNumber: '0987654321' },
     { bankName: 'First Bank of Nigeria', accountNumber: '1122334455' }
@@ -100,7 +98,7 @@ const BANK_DETAILS = {
 function PlanCard({ tier, onSelect, profile }) {
   const projectedReturn = Math.round(tier.minAmount * (tier.roiPercent / 100))
   const isVerified = profile?.kyc_status === 'verified'
-  
+
   return (
     <div className="plan-card-tiered" style={{ borderColor: tier.color }}>
       <div className="plan-header" style={{ background: tier.gradient }}>
@@ -108,7 +106,7 @@ function PlanCard({ tier, onSelect, profile }) {
         <h3>{tier.name}</h3>
         <p className="plan-tagline">{tier.tagline}</p>
       </div>
-      
+
       <div className="plan-body">
         <div className="plan-amount-range">
           <span className="amount-label">Investment Range</span>
@@ -116,7 +114,7 @@ function PlanCard({ tier, onSelect, profile }) {
             ₦{tier.minAmount.toLocaleString()} - ₦{tier.maxAmount.toLocaleString()}
           </p>
         </div>
-        
+
         <div className="plan-metrics">
           <div className="metric">
             <span className="metric-label">ROI</span>
@@ -133,7 +131,7 @@ function PlanCard({ tier, onSelect, profile }) {
             </span>
           </div>
         </div>
-        
+
         <div className="plan-features">
           {tier.features.map((feature, i) => (
             <div key={i} className="feature-item">
@@ -142,9 +140,9 @@ function PlanCard({ tier, onSelect, profile }) {
             </div>
           ))}
         </div>
-        
+
         {isVerified ? (
-          <button 
+          <button
             className="invest-btn-tiered"
             style={{ background: tier.gradient }}
             onClick={() => onSelect(tier)}
@@ -152,14 +150,14 @@ function PlanCard({ tier, onSelect, profile }) {
             Invest Now
           </button>
         ) : (
-          <Link 
-            to="/dashboard/kyc" 
+          <Link
+            to="/dashboard/kyc"
             className="invest-btn-tiered"
-            style={{ 
-              background: 'rgba(255,255,255,0.08)', 
-              color: '#fff', 
-              textDecoration: 'none', 
-              textAlign: 'center', 
+            style={{
+              background: 'rgba(255,255,255,0.08)',
+              color: '#fff',
+              textDecoration: 'none',
+              textAlign: 'center',
               display: 'block',
               border: '1px solid rgba(255,255,255,0.15)'
             }}
@@ -172,7 +170,7 @@ function PlanCard({ tier, onSelect, profile }) {
   )
 }
 
-function FlutterwavePayment({ amount, email, phone, name, onSuccess, onClose }) {
+function FlutterwavePayment({ amount, email, phone, name, onSuccess, onClose, validateAmount, disabled }) {
   const [scriptLoaded, setScriptLoaded] = useState(false)
 
   useEffect(() => {
@@ -189,6 +187,13 @@ function FlutterwavePayment({ amount, email, phone, name, onSuccess, onClose }) 
   }, [])
 
   function makePayment() {
+    // BLOCK if validation fails
+    const validationError = validateAmount?.()
+    if (validationError) {
+      alert(`❌ ${validationError}`)
+      return
+    }
+
     if (!window.FlutterwaveCheckout) {
       alert('Payment system loading... please try again in a moment.')
       return
@@ -201,7 +206,6 @@ function FlutterwavePayment({ amount, email, phone, name, onSuccess, onClose }) 
       tx_ref: txRef,
       amount: amount,
       currency: 'NGN',
-      // Added 'account' for bank transfer via Flutterwave
       payment_options: 'card,ussd,banktransfer,account',
       customer: {
         email: email,
@@ -213,20 +217,15 @@ function FlutterwavePayment({ amount, email, phone, name, onSuccess, onClose }) 
         description: `Investment payment of ₦${amount.toLocaleString()}`,
         logo: 'https://your-logo-url.com/logo.png',
       },
-        callback: function (response) {
-  if (response.status === 'successful') {
-    setTimeout(() => {
-      onSuccess({
-        transactionId: response.transaction_id,
-        txRef: txRef,
-        amount: amount,
-        status: 'pending',  
-        paymentMethod: 'flutterwave'
-      })
-    }, 500)
-  }
-},
-
+      callback: function (response) {
+        onSuccess({
+          transactionId: response.transaction_id,
+          txRef: txRef,
+          amount: amount,
+          status: 'pending',
+          paymentMethod: 'flutterwave'
+        })
+      },
       onclose: function () {
         onClose()
       },
@@ -237,19 +236,33 @@ function FlutterwavePayment({ amount, email, phone, name, onSuccess, onClose }) 
     <button
       className="confirm-invest-btn flutterwave-btn"
       onClick={makePayment}
-      disabled={!scriptLoaded}
+      disabled={!scriptLoaded || disabled}
+      style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
     >
-      {!scriptLoaded ? 'Loading Payment...' : `💳 Pay ₦${amount.toLocaleString()} with Flutterwave`}
+      {!scriptLoaded ? 'Loading Payment...' : disabled ? 'Enter Valid Amount' : `💳 Pay ₦${amount.toLocaleString()} with Flutterwave`}
     </button>
   )
 }
 
-function BankTransferOption({ amount, onSubmit, onCancel, user }) {
+function BankTransferOption({ amount, onSubmit, onCancel, user, validateAmount }) {
   const [proofFile, setProofFile] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [validationError, setValidationError] = useState(null)
+
+  // Check validation on mount and when amount changes
+  useEffect(() => {
+    const error = validateAmount?.()
+    setValidationError(error)
+  }, [amount, validateAmount])
 
   async function handleSubmit() {
+    const error = validateAmount?.()
+    if (error) {
+      alert(`❌ ${error}`)
+      return
+    }
+
     if (!proofFile) {
       alert('Please upload proof of payment (screenshot or receipt)')
       return
@@ -258,27 +271,27 @@ function BankTransferOption({ amount, onSubmit, onCancel, user }) {
     try {
       const fileExt = proofFile.name.split('.').pop()
       const fileName = `proof-of-payment/${user.id}/${Date.now()}.${fileExt}`
-      
+
       const { error: uploadError } = await supabase.storage
         .from('payment-proofs')
         .upload(fileName, proofFile)
 
       if (uploadError) throw uploadError
 
-     const { data, error: signedError } = await supabase.storage
-     .from('payment-proofs')
-     .createSignedUrl(fileName, 60 * 60 * 24 * 7) // 7 days
+      const { data, error: signedError } = await supabase.storage
+        .from('payment-proofs')
+        .createSignedUrl(fileName, 60 * 60 * 24 * 7)
 
-     if (signedError) throw signedError
+      if (signedError) throw signedError
 
       const signedUrl = data.signedUrl
 
-          onSubmit({
-      proof_path: fileName,
-      proof_url: signedUrl,
-      amount: amount,
-      paymentMethod: 'bank_transfer'
-     })
+      onSubmit({
+        proof_path: fileName,
+        proof_url: signedUrl,
+        amount: amount,
+        paymentMethod: 'bank_transfer'
+      })
 
     } catch (err) {
       console.error('Upload error:', err)
@@ -301,6 +314,19 @@ function BankTransferOption({ amount, onSubmit, onCancel, user }) {
         Transfer <strong>₦{amount.toLocaleString()}</strong> to any of the accounts below, then upload your proof of payment.
       </p>
 
+      {validationError && (
+        <div className="validation-error" style={{ 
+          color: '#FF4D4D', 
+          background: 'rgba(255,77,77,0.1)', 
+          padding: '10px', 
+          borderRadius: '8px',
+          marginBottom: '15px',
+          fontSize: '14px'
+        }}>
+          ⚠️ {validationError}
+        </div>
+      )}
+
       <div className="bank-accounts-list">
         <div className="bank-account-card primary">
           <div className="bank-info">
@@ -310,7 +336,7 @@ function BankTransferOption({ amount, onSubmit, onCancel, user }) {
           </div>
           <div className="account-number-row">
             <code className="account-number">{BANK_DETAILS.accountNumber}</code>
-            <button 
+            <button
               className="copy-btn"
               onClick={() => copyAccountNumber(BANK_DETAILS.accountNumber)}
             >
@@ -328,7 +354,7 @@ function BankTransferOption({ amount, onSubmit, onCancel, user }) {
             </div>
             <div className="account-number-row">
               <code className="account-number">{bank.accountNumber}</code>
-              <button 
+              <button
                 className="copy-btn"
                 onClick={() => copyAccountNumber(bank.accountNumber)}
               >
@@ -357,9 +383,10 @@ function BankTransferOption({ amount, onSubmit, onCancel, user }) {
         <button
           className="submit-proof-btn"
           onClick={handleSubmit}
-          disabled={uploading || !proofFile}
+          disabled={uploading || !proofFile || validationError}
+          style={validationError ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
         >
-          {uploading ? 'Uploading...' : 'Submit Proof & Continue'}
+          {uploading ? 'Uploading...' : validationError ? 'Fix Amount First' : 'Submit Proof & Continue'}
         </button>
         <button className="cancel-btn" onClick={onCancel}>
           Cancel
@@ -371,8 +398,9 @@ function BankTransferOption({ amount, onSubmit, onCancel, user }) {
 
 function InvestmentModal({ tier, onClose, user, profile }) {
   const [amount, setAmount] = useState(tier.minAmount)
-  const [paymentType, setPaymentType] = useState('full')
-  const [paymentMethod, setPaymentMethod] = useState('flutterwave') // 'flutterwave' | 'bank_transfer'
+  const [paymentMode, setPaymentMode] = useState('full') // 'full' | 'installment'
+  const [installmentDuration, setInstallmentDuration] = useState(3) // months
+  const [paymentMethod, setPaymentMethod] = useState('flutterwave')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [pendingProof, setPendingProof] = useState(false)
@@ -381,12 +409,32 @@ function InvestmentModal({ tier, onClose, user, profile }) {
   const projectedRoi = Math.round(amount * (tier.roiPercent / 100))
   const totalReturn = amount + projectedRoi
 
-  const installmentCount = 6
-  const firstInstallmentAmount = paymentType === 'installment'
-    ? Math.round(amount / installmentCount)
+  // Calculate first payment amount for installment
+  const firstPaymentAmount = paymentMode === 'installment'
+    ? Math.ceil(amount / installmentDuration)
     : amount
 
+  // Validation function - returns error string or null
+  function validateAmount() {
+    if (amount < tier.minAmount) {
+      return `Minimum investment for ${tier.name} is ₦${tier.minAmount.toLocaleString()}`
+    }
+    if (amount > tier.maxAmount) {
+      return `Maximum investment for ${tier.name} is ₦${tier.maxAmount.toLocaleString()}`
+    }
+    return null
+  }
+
+  // Is amount valid?
+  const isAmountValid = !validateAmount()
+
   async function handlePaymentSuccess(paymentData) {
+    const validationError = validateAmount()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
     setLoading(true)
     setError('')
 
@@ -420,15 +468,17 @@ function InvestmentModal({ tier, onClose, user, profile }) {
       }
 
       // 2. Create user investment
-      
       const { data: investment, error: invError } = await supabase
         .from('user_investments')
         .insert({
           user_id: user.id,
           investment_plan_id: planId,
           amount: amount,
-          payment_type: paymentType,
-          status: 'pending_payment',  
+          total_paid: 0,
+          balance_remaining: amount,
+          payment_mode: paymentMode,
+          installment_duration_months: paymentMode === 'installment' ? installmentDuration : null,
+          status: 'pending_approval',
           progress: 0,
           roi_earned: 0
         })
@@ -438,84 +488,57 @@ function InvestmentModal({ tier, onClose, user, profile }) {
       if (invError) throw invError
 
       // 3. Record transaction — ALWAYS pending
-            const transactionData = {
+      const transactionData = {
         user_id: user.id,
         type: 'investment',
-        amount: amount,
-        status: 'pending',  
+        amount: paymentData.amount,
+        status: 'pending',
         reference: paymentData.txRef || `BT-${Date.now()}`,
         payment_method: paymentData.paymentMethod,
-        metadata: { 
-          tier: tier.name, 
-          payment_type: paymentType,
+        metadata: {
+          tier: tier.name,
+          investment_id: investment.id,
+          payment_mode: paymentMode,
           flutterwave_tx_id: paymentData.transactionId || null,
           ...(paymentData.proof_url && { proof_url: paymentData.proof_url }),
           ...(paymentData.proof_path && { proof_path: paymentData.proof_path })
         }
       }
 
-      
       const { data: txRecord, error: txError } = await supabase
         .from('transactions')
         .insert(transactionData)
         .select()
         .single()
-      
+
       if (txError) throw txError
 
       // 4. For bank transfer: also insert into payment_proofs table
       if (paymentData.paymentMethod === 'bank_transfer' && paymentData.proof_path) {
         const { error: proofError } = await supabase
-  .from('payment_proofs')
-  .insert({
-    user_id: user.id,
-    transaction_id: txRecord.id,
-    investment_id: investment.id,
-    file_path: paymentData.proof_path,
-    file_url: paymentData.proof_url,
-    status: 'pending'
-  })
-
-if (proofError) {
-  console.error('PAYMENT_PROOF ERROR:', proofError)
-  throw proofError
-}
-      }
-
-      // 5. Create installments (same as before)
-      if (paymentType === 'installment') {
-        const installmentAmount = Math.round(amount / installmentCount)
-        const installments = []
-        for (let i = 1; i <= installmentCount; i++) {
-          const dueDate = new Date()
-          dueDate.setMonth(dueDate.getMonth() + i)
-          installments.push({
+          .from('payment_proofs')
+          .insert({
+            user_id: user.id,
+            transaction_id: txRecord.id,
             investment_id: investment.id,
-            amount: i === installmentCount 
-              ? amount - (installmentAmount * (installmentCount - 1)) 
-              : installmentAmount,
-            due_date: dueDate.toISOString().split('T')[0],
-            paid: false
+            file_path: paymentData.proof_path,
+            file_url: paymentData.proof_url,
+            status: 'pending'
           })
-        }
-        const { error: installmentError } = await supabase
-  .from('installments')
-  .insert(installments)
 
-if (installmentError) {
-  console.error('INSTALLMENT ERROR:', installmentError)
-  throw installmentError
-}
+        if (proofError) {
+          console.error('PAYMENT_PROOF ERROR:', proofError)
+          throw proofError
+        }
       }
 
-      // 6. Update profile (same)
+      // 5. Update profile investment goal
       await supabase
         .from('profiles')
         .update({ investment_goal: tier.name })
         .eq('id', user.id)
 
-      // 7. Show pending state for BOTH methods
-      setPendingProof(true)  
+      setPendingProof(true)
 
     } catch (err) {
       console.error('Investment error:', err)
@@ -524,7 +547,6 @@ if (installmentError) {
       setLoading(false)
     }
   }
-
 
   if (pendingProof) {
     return (
@@ -535,12 +557,12 @@ if (installmentError) {
           </div>
           <div className="modal-body" style={{ textAlign: 'center', padding: '40px' }}>
             <div style={{ fontSize: '64px', marginBottom: '20px' }}>🏦</div>
-                        <h3>Payment submitted for verification</h3>
+            <h3>Payment submitted for verification</h3>
             <p style={{ color: '#aaa', marginTop: '10px', lineHeight: '1.6' }}>
-              Our team will verify your payment within 1-2 business hours.<br/>
+              Our team will verify your payment within 1-2 business hours.<br />
               You'll receive a notification once confirmed.
             </p>
-            <button 
+            <button
               className="confirm-invest-btn"
               onClick={() => navigate('/dashboard/portfolio')}
               style={{ marginTop: '20px' }}
@@ -553,6 +575,8 @@ if (installmentError) {
     )
   }
 
+  const validationError = validateAmount()
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -560,10 +584,30 @@ if (installmentError) {
           <h2>{tier.icon} {tier.name} Investment</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
-        
+
         <div className="modal-body">
           {error && <div className="error-message">{error}</div>}
           
+          {/* Validation Warning - Always visible when invalid */}
+          {validationError && (
+            <div className="validation-warning" style={{
+              background: 'rgba(255, 77, 77, 0.15)',
+              border: '1px solid rgba(255, 77, 77, 0.4)',
+              color: '#FF4D4D',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              marginBottom: '15px',
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>⚠️</span>
+              <span>{validationError}</span>
+            </div>
+          )}
+
+          {/* Amount Input */}
           <div className="amount-input-group">
             <label>Investment Amount (₦)</label>
             <input
@@ -572,31 +616,71 @@ if (installmentError) {
               onChange={(e) => setAmount(Number(e.target.value))}
               min={tier.minAmount}
               max={tier.maxAmount}
-              className="amount-input"
+              className={`amount-input ${!isAmountValid ? 'invalid' : ''}`}
+              style={!isAmountValid ? { borderColor: '#FF4D4D' } : {}}
             />
             <div className="amount-hint">
               Min: ₦{tier.minAmount.toLocaleString()} | Max: ₦{tier.maxAmount.toLocaleString()}
             </div>
           </div>
 
-          <div className="payment-type-group">
-            <label>Payment Type</label>
-            <div className="payment-options">
+          {/* Payment Mode Selection */}
+          <div className="payment-mode-group">
+            <label>Payment Mode</label>
+            <div className="payment-mode-options">
               <button
-                className={paymentType === 'full' ? 'active' : ''}
-                onClick={() => setPaymentType('full')}
+                className={paymentMode === 'full' ? 'active' : ''}
+                onClick={() => setPaymentMode('full')}
               >
-                Full Payment
+                💰 Full Payment
               </button>
               <button
-                className={paymentType === 'installment' ? 'active' : ''}
-                onClick={() => setPaymentType('installment')}
+                className={paymentMode === 'installment' ? 'active' : ''}
+                onClick={() => setPaymentMode('installment')}
               >
-                6-Month Installments
+                📅 Installment
               </button>
             </div>
           </div>
 
+          {/* Installment Duration (only if installment selected) */}
+          {paymentMode === 'installment' && (
+            <div className="installment-duration-group">
+              <label>Spread Payment Over (Months)</label>
+              <select
+                value={installmentDuration}
+                onChange={(e) => setInstallmentDuration(Number(e.target.value))}
+                className="duration-select"
+              >
+                {[1, 2, 3, 4, 5, 6, 9, 12, 18, 24].map(months => (
+                  <option key={months} value={months}>
+                    {months} month{months > 1 ? 's' : ''}
+                  </option>
+                ))}
+              </select>
+              <div className="duration-info" style={{
+                background: 'rgba(201, 169, 98, 0.1)',
+                border: '1px solid rgba(201, 169, 98, 0.3)',
+                padding: '12px',
+                borderRadius: '8px',
+                marginTop: '10px',
+                fontSize: '13px'
+              }}>
+                <p style={{ margin: '0 0 5px 0', color: '#C9A962' }}>📊 Payment Breakdown</p>
+                <p style={{ margin: '0' }}>
+                  Total: ₦{amount.toLocaleString()} over {installmentDuration} months
+                </p>
+                <p style={{ margin: '5px 0 0 0', color: '#aaa' }}>
+                  Suggested per payment: ~₦{Math.ceil(amount / installmentDuration).toLocaleString()}
+                </p>
+                <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#888' }}>
+                  (You can pay any amount each time, minimum ₦{Math.ceil(amount / installmentDuration).toLocaleString()})
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Investment Summary */}
           <div className="investment-summary">
             <div className="summary-row">
               <span>Principal</span>
@@ -607,14 +691,20 @@ if (installmentError) {
               <span style={{ color: '#4CAF50' }}>₦{projectedRoi.toLocaleString()}</span>
             </div>
             <div className="summary-row">
-              <span>Duration</span>
+              <span>Investment Duration</span>
               <span>{tier.durationMonths} months</span>
             </div>
-            {paymentType === 'installment' && (
-              <div className="summary-row">
-                <span>First Installment</span>
-                <span>₦{firstInstallmentAmount.toLocaleString()}</span>
-              </div>
+            {paymentMode === 'installment' && (
+              <>
+                <div className="summary-row">
+                  <span>Payment Spread</span>
+                  <span>{installmentDuration} months</span>
+                </div>
+                <div className="summary-row">
+                  <span>First Payment</span>
+                  <span style={{ color: '#C9A962' }}>₦{firstPaymentAmount.toLocaleString()}</span>
+                </div>
+              </>
             )}
             <div className="summary-row total">
               <span>Total Return</span>
@@ -641,22 +731,47 @@ if (installmentError) {
             </div>
           </div>
 
+          {/* Payment Amount Display */}
+          <div className="payment-amount-display" style={{
+            background: 'rgba(76, 175, 80, 0.1)',
+            border: '1px solid rgba(76, 175, 80, 0.3)',
+            padding: '15px',
+            borderRadius: '10px',
+            textAlign: 'center',
+            marginBottom: '15px'
+          }}>
+            <span style={{ fontSize: '12px', color: '#aaa', display: 'block', marginBottom: '5px' }}>
+              {paymentMode === 'installment' ? 'First Payment Amount' : 'Payment Amount'}
+            </span>
+            <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#4CAF50' }}>
+              ₦{firstPaymentAmount.toLocaleString()}
+            </span>
+            {paymentMode === 'installment' && (
+              <span style={{ fontSize: '12px', color: '#888', display: 'block', marginTop: '5px' }}>
+                (Subsequent payments: flexible amounts)
+              </span>
+            )}
+          </div>
+
           {paymentMethod === 'flutterwave' ? (
             <FlutterwavePayment
-              amount={firstInstallmentAmount}
+              amount={firstPaymentAmount}
               email={user.email}
               phone={profile?.phone}
               name={profile?.full_name}
               onSuccess={handlePaymentSuccess}
               onClose={() => setLoading(false)}
+              validateAmount={validateAmount}
+              disabled={!isAmountValid}
             />
           ) : (
             <BankTransferOption
-  amount={firstInstallmentAmount}
-  user={user}
-  onSubmit={handlePaymentSuccess}
-  onCancel={() => setPaymentMethod('flutterwave')}
-/>
+              amount={firstPaymentAmount}
+              user={user}
+              onSubmit={handlePaymentSuccess}
+              onCancel={() => setPaymentMethod('flutterwave')}
+              validateAmount={validateAmount}
+            />
           )}
         </div>
       </div>
@@ -664,13 +779,12 @@ if (installmentError) {
   )
 }
 
-
 export default function InvestmentPlans() {
   const { user } = useAuth()
   const { plans: dbPlans, profile, loading } = useDashboardData(user)
   const [selectedTier, setSelectedTier] = useState(null)
 
-  const displayPlans = dbPlans.length > 0 
+  const displayPlans = dbPlans.length > 0
     ? dbPlans.map(plan => {
         const tier = TIERS.find(t => t.name === plan.title?.split(' ')[0]) || TIERS[0]
         return { ...tier, ...plan, id: plan.id }
@@ -685,9 +799,9 @@ export default function InvestmentPlans() {
           Choose from our curated real estate investment tiers, designed to maximize your returns
         </p>
         {profile?.kyc_status !== 'verified' && (
-          <div style={{ 
-            background: 'rgba(255, 152, 0, 0.1)', 
-            border: '1px solid rgba(255, 152, 0, 0.3)', 
+          <div style={{
+            background: 'rgba(255, 152, 0, 0.1)',
+            border: '1px solid rgba(255, 152, 0, 0.3)',
             color: '#FF9800',
             padding: '12px 20px',
             borderRadius: '10px',

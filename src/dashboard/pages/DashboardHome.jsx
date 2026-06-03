@@ -17,14 +17,14 @@ function StatCard({ title, value, subtitle, icon, color }) {
 }
 
 function RecentInvestment({ investment }) {
-  const plan = investment.investment_plan
-  const progress = investment.progress || 0
+  const plan = investment?.investment_plan
+  const progress = investment?.progress || 0
 
   return (
     <div className="recent-investment-item">
       <div className="recent-investment-info">
         <h4>{plan?.title || 'Investment'}</h4>
-        <p>₦{investment.amount?.toLocaleString()}</p>
+        <p>₦{(investment?.amount || 0).toLocaleString()}</p>
       </div>
       <div className="recent-investment-progress">
         <div className="progress-bar-bg">
@@ -35,15 +35,15 @@ function RecentInvestment({ investment }) {
         </div>
         <span>{progress}%</span>
       </div>
-      <div className={`status-badge ${investment.status}`}>
-        {investment.status}
+      <div className={`status-badge ${investment?.status || 'pending'}`}>
+        {investment?.status || 'pending'}
       </div>
     </div>
   )
 }
 
 function RecentTransaction({ transaction }) {
-  const isCredit = transaction.type === 'deposit' || transaction.type === 'roi_payout'
+  const isCredit = transaction?.type === 'deposit' || transaction?.type === 'roi_payout'
 
   return (
     <div className="recent-transaction-item">
@@ -51,11 +51,11 @@ function RecentTransaction({ transaction }) {
         {isCredit ? '↓' : '↑'}
       </div>
       <div className="transaction-info">
-        <h4>{transaction.type?.replace('_', ' ')?.toUpperCase()}</h4>
-        <p>{new Date(transaction.created_at).toLocaleDateString()}</p>
+        <h4>{(transaction?.type || 'unknown')?.replace('_', ' ')?.toUpperCase()}</h4>
+        <p>{transaction?.created_at ? new Date(transaction.created_at).toLocaleDateString() : 'N/A'}</p>
       </div>
       <div className={`transaction-amount ${isCredit ? 'credit' : 'debit'}`}>
-        {isCredit ? '+' : '-'}₦{transaction.amount?.toLocaleString()}
+        {isCredit ? '+' : '-'}₦{(transaction?.amount || 0).toLocaleString()}
       </div>
     </div>
   )
@@ -74,6 +74,17 @@ export default function DashboardHome() {
     refresh
   } = useDashboardData(user)
 
+  // SAFETY: Default stats if undefined
+  const safeStats = {
+    totalInvested: stats?.totalInvested || 0,
+    totalRoi: stats?.totalRoi || 0,
+    activeInvestments: stats?.activeInvestments || 0,
+    pendingInstallments: stats?.pendingInstallments || 0,
+    totalPaid: stats?.totalPaid || 0,
+    totalBalance: stats?.totalBalance || 0,
+    pendingPayments: stats?.pendingPayments || 0
+  }
+
   if (loading) {
     return (
       <div className="dashboard-page">
@@ -85,8 +96,8 @@ export default function DashboardHome() {
     )
   }
 
-  const recentInvestments = investments.slice(0, 3)
-  const recentTransactions = transactions.slice(0, 5)
+  const recentInvestments = (investments || []).slice(0, 3)
+  const recentTransactions = (transactions || []).slice(0, 5)
 
   return (
     <div className="dashboard-page dashboard-home">
@@ -105,29 +116,29 @@ export default function DashboardHome() {
       <div className="stats-grid">
         <StatCard
           title="Total Invested"
-          value={`₦${stats.totalInvested.toLocaleString()}`}
+          value={`₦${safeStats.totalInvested.toLocaleString()}`}
           subtitle="Across all plans"
           icon="💰"
           color="#C9A962"
         />
         <StatCard
           title="ROI Earned"
-          value={`₦${stats.totalRoi.toLocaleString()}`}
+          value={`₦${safeStats.totalRoi.toLocaleString()}`}
           subtitle="Total returns"
           icon="📈"
           color="#4CAF50"
         />
         <StatCard
           title="Active Investments"
-          value={stats.activeInvestments}
+          value={safeStats.activeInvestments}
           subtitle="Running plans"
           icon="🏗️"
           color="#2196F3"
         />
         <StatCard
-          title="Pending Installments"
-          value={stats.pendingInstallments}
-          subtitle="Upcoming payments"
+          title="Pending Payments"
+          value={safeStats.pendingPayments}
+          subtitle="Awaiting approval"
           icon="⏰"
           color="#FF9800"
         />

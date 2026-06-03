@@ -32,8 +32,6 @@ export default function AdminKYC() {
     if (!isAdmin) {
       navigate('/dashboard')
     }
-    console.log('AdminKYC: isAdmin =', isAdmin)
-  console.log('AdminKYC: dashboardLoading =', dashboardLoading)
   }, [isAdmin, dashboardLoading, navigate])
 
   useEffect(() => {
@@ -53,70 +51,57 @@ export default function AdminKYC() {
   }, [])
 
   async function fetchKYCData() {
-  console.log('AdminKYC: fetchKYCData called')
-  setLoading(true)
-  try {
-    const { data: docs, error: docsError } = await supabase
-      .from('kyc_documents')
-      .select('*')
-      .order('created_at', { ascending: false })
+    setLoading(true)
+    try {
+      const { data: docs, error: docsError } = await supabase
+        .from('kyc_documents')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-    console.log('AdminKYC: docs =', docs)           // <-- ADD THIS
-    console.log('AdminKYC: docsError =', docsError) // <-- ADD THIS
-    console.log('AdminKYC: docs length =', docs?.length) // <-- ADD THIS
+      if (docsError) throw docsError
 
-    if (docsError) throw docsError
+      const userIds = [...new Set(docs?.map(d => d.user_id) || [])]
+      
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone, kyc_status')
+        .in('id', userIds)
 
-    const userIds = [...new Set(docs?.map(d => d.user_id) || [])]
-    console.log('AdminKYC: userIds =', userIds)
-    console.log('AdminKYC: userIds length =', userIds.length)
-    
-    
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, full_name, phone, kyc_status')
-      .in('id', userIds)
+      if (profilesError) throw profilesError
 
-      console.log('AdminKYC: profiles =', profiles)
-    console.log('AdminKYC: profilesError =', profilesError)
+      const profileMap = {}
+      profiles?.forEach(p => { profileMap[p.id] = p })
 
+      const mergedData = docs?.map(doc => ({
+        ...doc,
+        profiles: profileMap[doc.user_id] || null
+      })) || []
 
-    if (profilesError) throw profilesError
-
-    // 3. Merge them manually
-    const profileMap = {}
-    profiles?.forEach(p => { profileMap[p.id] = p })
-
-    const mergedData = docs?.map(doc => ({
-      ...doc,
-      profiles: profileMap[doc.user_id] || null
-    })) || []
-
-    setPendingDocs(mergedData)
-    
-    const pending = mergedData.filter(d => d.status === 'pending')
-    const verified = mergedData.filter(d => d.status === 'verified')
-    const rejected = mergedData.filter(d => d.status === 'rejected')
-    
-    setStats({
-      totalPending: pending.length,
-      totalVerified: verified.length,
-      totalRejected: rejected.length,
-      identityPending: pending.filter(d => d.document_type === 'identity').length,
-      addressPending: pending.filter(d => d.document_type === 'address').length,
-      selfiePending: pending.filter(d => d.document_type === 'selfie').length
-    })
-  } catch (err) {
-    console.error('Fetch error:', err)
-  } finally {
-    setLoading(false)
+      setPendingDocs(mergedData)
+      
+      const pending = mergedData.filter(d => d.status === 'pending')
+      const verified = mergedData.filter(d => d.status === 'verified')
+      const rejected = mergedData.filter(d => d.status === 'rejected')
+      
+      setStats({
+        totalPending: pending.length,
+        totalVerified: verified.length,
+        totalRejected: rejected.length,
+        identityPending: pending.filter(d => d.document_type === 'identity').length,
+        addressPending: pending.filter(d => d.document_type === 'address').length,
+        selfiePending: pending.filter(d => d.document_type === 'selfie').length
+      })
+    } catch (err) {
+      console.error('Fetch error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
-}
-
 
   async function approveDocument(doc) {
     setProcessingId(doc.id)
     try {
+      // 1. Update current document to verified
       const { error: docError } = await supabase
         .from('kyc_documents')
         .update({ 
@@ -128,20 +113,42 @@ export default function AdminKYC() {
 
       if (docError) throw docError
 
-      const { data: userDocs } = await supabase
+      // 2. Get ALL documents for this user (including the one we just updated)
+      const { data: userDocs, error: fetchError } = await supabase
         .from('kyc_documents')
-        .select('status')
+        .select('document_type, status')
         .eq('user_id', doc.user_id)
 
-      const allVerified = userDocs?.length >= 3 && userDocs.every(d => d.status === 'verified')
+      if (fetchError) throw fetchError
 
-      if (allVerified) {
-        await supabase
+      // 3. FIXED: Check if user has at least one verified doc for EACH required type
+      const requiredTypes = ['identity', 'address', 'selfie']
+      const allVerified = requiredTypes.every(type => {
+        const docsOfType = userDocs?.filter(d => d.document_type === type) || []
+        // Must have at least one document of this type, and the LATEST one should be verified
+        // We order by created_at desc, so the first one is the latest
+        const latestDoc = docsOfType[0] // Since we fetch ordered by created_at desc in fetchKYCData, 
+                                        // but here we didn't order. Let's be safe and sort.
+        return docsOfType.some(d => d.status === 'verified')
+      })
+
+      // Even better approach: group by type and check if any is verified
+      const hasVerifiedIdentity = userDocs?.some(d => d.document_type === 'identity' && d.status === 'verified')
+      const hasVerifiedAddress = userDocs?.some(d => d.document_type === 'address' && d.status === 'verified')
+      const hasVerifiedSelfie = userDocs?.some(d => d.document_type === 'selfie' && d.status === 'verified')
+
+      const allTypesVerified = hasVerifiedIdentity && hasVerifiedAddress && hasVerifiedSelfie
+
+      if (allTypesVerified) {
+        const { error: profileError } = await supabase
           .from('profiles')
           .update({ kyc_status: 'verified' })
           .eq('id', doc.user_id)
+          
+        if (profileError) throw profileError
       }
 
+      // 4. Send notification
       await supabase.from('notifications').insert({
         user_id: doc.user_id,
         title: 'KYC Document Approved ✅',
@@ -180,6 +187,7 @@ export default function AdminKYC() {
 
       if (docError) throw docError
 
+      // When rejecting ANY document, set profile to rejected
       await supabase
         .from('profiles')
         .update({ kyc_status: 'rejected' })

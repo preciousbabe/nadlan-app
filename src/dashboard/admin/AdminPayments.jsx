@@ -6,19 +6,21 @@ import { useNavigate } from 'react-router-dom'
 export default function AdminPayments() {
   const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
+
   const [pendingPayments, setPendingPayments] = useState([])
   const [loading, setLoading] = useState(true)
   const [processingId, setProcessingId] = useState(null)
-  const [filter, setFilter] = useState('all') // 'all' | 'bank_transfer' | 'flutterwave'
+  const [filter, setFilter] = useState('all')
+  const [selectedProof, setSelectedProof] = useState(null)
   const [stats, setStats] = useState({
     totalPending: 0,
     totalAmount: 0,
     bankTransferCount: 0,
-    flutterwaveCount: 0
+    flutterwaveCount: 0,
+    installmentCount: 0
   })
-    const [error, setError] = useState(null)
+  const [error, setError] = useState(null)
 
-  // Redirect non-admin users
   useEffect(() => {
     if (!isAdmin) {
       navigate('/dashboard')
@@ -27,11 +29,10 @@ export default function AdminPayments() {
 
   useEffect(() => {
     fetchPendingPayments()
-    
-    // Real-time subscription for new pending payments
+
     const subscription = supabase
       .channel('pending-payments')
-            .on('postgres_changes', 
+      .on('postgres_changes',
         { event: '*', schema: 'public', table: 'transactions' },
         () => fetchPendingPayments()
       )
@@ -44,44 +45,40 @@ export default function AdminPayments() {
 
   async function fetchPendingPayments() {
     setLoading(true)
-        setError(null)
-    try {
-           const { data, error } = await supabase
-        .from('transactions')
-        .select(`
-          *,
-          profiles:user_id (full_name,  phone),
-          user_investments!inner (
-            id,
-            amount,
-            payment_type,
-            status,
-            investment_plan_id,
-            investment_plan:investment_plan_id (title)
-          ),
-          payment_proofs (
-            id,
-            file_url,
-            status
-          )
-        `)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
+    setError(null)
 
+    try {  
+
+const { data, error } = await supabase
+  .from('transactions')
+  .select(`
+    *,
+    profiles:user_id (full_name, phone),
+    payment_proofs (
+      id,
+      file_url,
+      file_path,
+      status
+    )
+  `)
+  .eq('status', 'pending')
+  .order('created_at', { ascending: false })
       if (error) throw error
-       console.log('PROOFS DATA:', data)
+
       setPendingPayments(data || [])
-      
-      // Calculate stats
+
       const bankTransfers = data?.filter(t => t.payment_method === 'bank_transfer') || []
       const flutterwave = data?.filter(t => t.payment_method === 'flutterwave') || []
+      const installments = data?.filter(t => t.type === 'installment_payment') || []
+
       setStats({
         totalPending: data?.length || 0,
         totalAmount: data?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0,
         bankTransferCount: bankTransfers.length,
-        flutterwaveCount: flutterwave.length
+        flutterwaveCount: flutterwave.length,
+        installmentCount: installments.length
       })
-       } catch (err) {
+    } catch (err) {
       console.error('Fetch error:', err)
       setError(err.message || 'Failed to load payments')
     } finally {
@@ -89,13 +86,22 @@ export default function AdminPayments() {
     }
   }
 
-  async function verifyPayment(transaction) {
+  async function approvePayment(transaction) {
     setProcessingId(transaction.id)
+
     try {
-      // 1. Update transaction status
+      const { data: investment, error: invFetchError } = await supabase
+        .from('user_investments')
+        .select('*, investment_plan:investment_plan_id (title)')
+        .eq('id', transaction.metadata?.investment_id)
+        .single()
+
+      if (invFetchError) throw invFetchError
+
+      // 1. Update transaction to completed
       const { error: txError } = await supabase
         .from('transactions')
-        .update({ 
+        .update({
           status: 'completed',
           verified_at: new Date().toISOString(),
           verified_by: user.id
@@ -104,69 +110,91 @@ export default function AdminPayments() {
 
       if (txError) throw txError
 
-      // 2. Activate the investment
-            const investment = Array.isArray(transaction.user_investments) 
-        ? transaction.user_investments[0] 
-        : transaction.user_investments
+      // 2. Calculate new totals
+      const newTotalPaid = (investment.total_paid || 0) + transaction.amount
+      const newBalance = investment.amount - newTotalPaid
+      const isFullyPaid = newBalance <= 0
 
-      const { error: invError } = await supabase
+      // 3. Update investment
+      const { error: invUpdateError } = await supabase
         .from('user_investments')
-        .update({ status: 'active' })
+        .update({
+          status: isFullyPaid ? 'active' : 'active', // stays active once approved
+          total_paid: newTotalPaid,
+          balance_remaining: Math.max(0, newBalance),
+          progress: Math.min(100, Math.round((newTotalPaid / investment.amount) * 100))
+        })
         .eq('id', investment.id)
 
-      if (invError) throw invError
+      if (invUpdateError) throw invUpdateError
 
-      // 3. Mark first installment as paid if installment plan
-      if (investment?.payment_type === 'installment') {
+      // 4. Create installment record for this payment
+      const { data: existingInstallments } = await supabase
+        .from('installments')
+        .select('installment_number')
+        .eq('investment_id', investment.id)
+        .order('installment_number', { ascending: false })
+        .limit(1)
+
+      const nextNumber = (existingInstallments?.[0]?.installment_number || 0) + 1
+
+      const { error: instError } = await supabase
+        .from('installments')
+        .insert({
+          investment_id: investment.id,
+          user_id: transaction.user_id,
+          amount: transaction.amount,
+          paid: true,
+          paid_at: new Date().toISOString(),
+          transaction_id: transaction.id,
+          installment_number: nextNumber
+        })
+
+      if (instError) throw instError
+
+      // 5. Update payment_proofs if exists
+      if (transaction.payment_proofs?.length > 0) {
         await supabase
-          .from('installments')
-          .update({ paid: true, paid_at: new Date().toISOString() })
-          .eq('investment_id', investment.id)
-          .order('due_date', { ascending: true })
-          .limit(1)
+          .from('payment_proofs')
+          .update({
+            status: 'approved',
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: user.id
+          })
+          .eq('transaction_id', transaction.id)
       }
 
-            // If this is an installment payment (not initial investment), mark the specific installment
-      if (transaction.type === 'installment_payment' && transaction.metadata?.installment_id) {
-        await supabase
-          .from('installments')
-          .update({ paid: true, paid_at: new Date().toISOString() })
-          .eq('id', transaction.metadata.installment_id)
-      }
-
-      // 4. Send notification to user (you can integrate email/SMS here)
+      // 6. Notify user
       await supabase.from('notifications').insert({
         user_id: transaction.user_id,
-        title: 'Payment Verified ✅',
-        message: `Your payment of ₦${transaction.amount.toLocaleString()} for ${investment?.investment_plan?.title || 'investment'} has been verified.`,
+        title: 'Payment Approved ✅',
+        message: `Your payment of ₦${transaction.amount.toLocaleString()} for ${investment?.investment_plan?.title || 'investment'} has been approved. ${isFullyPaid ? 'Your investment is now fully paid!' : `Balance remaining: ₦${Math.max(0, newBalance).toLocaleString()}`}`,
         type: 'payment_verified',
         read: false
       })
 
-            // Update payment_proofs if exists
-         await supabase
-        .from('payment_proofs')
-        .update({ status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user.id })
-        .eq('transaction_id', transaction.id)
-
-
-      // Refresh list
       await fetchPendingPayments()
     } catch (err) {
-      console.error('Verification error:', err)
-      alert('Failed to verify payment: ' + err.message)
+      console.error('Approval error:', err)
+      alert('Failed to approve payment: ' + err.message)
     } finally {
       setProcessingId(null)
     }
   }
 
   async function rejectPayment(transaction, reason) {
+    if (!reason?.trim()) {
+      alert('Please provide a rejection reason')
+      return
+    }
+
     setProcessingId(transaction.id)
+
     try {
-      // 1. Update transaction status
-      await supabase
+      // 1. Update transaction to rejected
+      const { error: txError } = await supabase
         .from('transactions')
-        .update({ 
+        .update({
           status: 'rejected',
           rejection_reason: reason,
           rejected_at: new Date().toISOString(),
@@ -174,18 +202,32 @@ export default function AdminPayments() {
         })
         .eq('id', transaction.id)
 
-            // 2. Cancel the investment only if it's an initial investment, not installment payment
-      if (transaction.type !== 'installment_payment') {
-        const investment = Array.isArray(transaction.user_investments) 
-          ? transaction.user_investments[0] 
-          : transaction.user_investments
+      if (txError) throw txError
+
+      // 2. If this is the FIRST payment (initial investment), cancel the investment
+      const isInitialPayment = transaction.type === 'investment'
+
+      if (isInitialPayment) {
         await supabase
           .from('user_investments')
           .update({ status: 'cancelled' })
-          .eq('id', investment.id)
+          .eq('id', transaction.metadata?.investment_id)
       }
 
-      // 3. Notify user
+      // 3. Update payment_proofs if exists
+      if (transaction.payment_proofs?.length > 0) {
+        await supabase
+          .from('payment_proofs')
+          .update({
+            status: 'rejected',
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: user.id,
+            rejection_reason: reason
+          })
+          .eq('transaction_id', transaction.id)
+      }
+
+      // 4. Notify user
       await supabase.from('notifications').insert({
         user_id: transaction.user_id,
         title: 'Payment Rejected ❌',
@@ -193,12 +235,6 @@ export default function AdminPayments() {
         type: 'payment_rejected',
         read: false
       })
-
-            // Update payment_proofs if exists
-      await supabase
-        .from('payment_proofs')
-        .update({ status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user.id, rejection_reason: reason })
-        .eq('transaction_id', transaction.id)
 
       await fetchPendingPayments()
     } catch (err) {
@@ -209,11 +245,12 @@ export default function AdminPayments() {
     }
   }
 
-   const filteredPayments = pendingPayments.filter(p => {
+  const filteredPayments = pendingPayments.filter(p => {
     if (filter === 'all') return true
     if (filter === 'bank_transfer') return p.payment_method === 'bank_transfer'
     if (filter === 'flutterwave') return p.payment_method === 'flutterwave'
     if (filter === 'installment_payment') return p.type === 'installment_payment'
+    if (filter === 'investment') return p.type === 'investment'
     return true
   })
 
@@ -223,20 +260,20 @@ export default function AdminPayments() {
     <div className="dashboard-page admin-payments">
       <div className="admin-header">
         <h1>🔐 Payment Verification</h1>
-        <p className="admin-subtitle">Review and verify pending investment payments</p>
+        <p className="admin-subtitle">Review and approve all pending payments</p>
       </div>
 
-           {error && (
+      {error && (
         <div className="error-state" style={{ color: '#FF4D4D', padding: '20px', textAlign: 'center', background: 'rgba(255,77,77,0.1)', borderRadius: '10px', margin: '0 20px 20px' }}>
           ⚠️ {error}
         </div>
       )}
 
-      {/* Stats Cards */}
+      {/* Stats */}
       <div className="stats-grid">
         <div className="stat-card">
           <span className="stat-number">{stats.totalPending}</span>
-          <span className="stat-label">Pending Payments</span>
+          <span className="stat-label">Pending</span>
         </div>
         <div className="stat-card">
           <span className="stat-number">₦{stats.totalAmount.toLocaleString()}</span>
@@ -248,46 +285,36 @@ export default function AdminPayments() {
         </div>
         <div className="stat-card flutterwave">
           <span className="stat-number">{stats.flutterwaveCount}</span>
-             <span className="stat-label">Flutterwave</span>
+          <span className="stat-label">Flutterwave</span>
         </div>
       </div>
 
-      {/* Filter Tabs */}
+      {/* Filters */}
       <div className="filter-tabs">
-        <button 
-          className={filter === 'all' ? 'active' : ''} 
-          onClick={() => setFilter('all')}
-        >
-          All Pending
+        <button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>
+          All
         </button>
-                <button 
-          className={filter === 'installment_payment' ? 'active' : ''} 
-          onClick={() => setFilter('installment_payment')}
-        >
+        <button className={filter === 'investment' ? 'active' : ''} onClick={() => setFilter('investment')}>
+          🏗️ New Investments
+        </button>
+        <button className={filter === 'installment_payment' ? 'active' : ''} onClick={() => setFilter('installment_payment')}>
           💳 Installments
         </button>
-        <button 
-          className={filter === 'bank_transfer' ? 'active' : ''} 
-          onClick={() => setFilter('bank_transfer')}
-        >
-          🏦 Bank Transfers
+        <button className={filter === 'bank_transfer' ? 'active' : ''} onClick={() => setFilter('bank_transfer')}>
+          🏦 Bank Transfer
         </button>
-        <button 
-          className={filter === 'flutterwave' ? 'active' : ''} 
-          onClick={() => setFilter('flutterwave')}
-        >
+        <button className={filter === 'flutterwave' ? 'active' : ''} onClick={() => setFilter('flutterwave')}>
           💳 Flutterwave
         </button>
       </div>
 
-      {/* Payments Table */}
+      {/* Table */}
       {loading ? (
-        <div className="loading-state">Loading pending payments...</div>
+        <div className="loading-state">Loading...</div>
       ) : filteredPayments.length === 0 ? (
         <div className="empty-state">
           <span className="empty-icon">✅</span>
           <h3>No pending payments</h3>
-          <p>All payments have been verified.</p>
         </div>
       ) : (
         <div className="payments-table-container">
@@ -296,7 +323,7 @@ export default function AdminPayments() {
               <tr>
                 <th>Date</th>
                 <th>Investor</th>
-                <th>Plan</th>
+                <th>Type</th>
                 <th>Amount</th>
                 <th>Method</th>
                 <th>Proof</th>
@@ -305,17 +332,17 @@ export default function AdminPayments() {
             </thead>
             <tbody>
               {filteredPayments.map(tx => {
-                  const investment = Array.isArray(tx.user_investments) 
-                  ? tx.user_investments[0] 
-                  : tx.user_investments
                 const profile = tx.profiles
-                 const proofUrl = tx.payment_proofs?.[0]?.file_url || tx.metadata?.proof_url || null
-                
+                const proof = tx.payment_proofs?.[0]
+                const isInstallment = tx.type === 'installment_payment'
+
                 return (
-                  <tr key={tx.id} className={`payment-row ${tx.payment_method}`}>
+                  <tr key={tx.id} className={`payment-row ${tx.payment_method} ${isInstallment ? 'installment' : ''}`}>
                     <td className="date-cell">
                       {new Date(tx.created_at).toLocaleDateString('en-NG')}
-                      <span className="time">{new Date(tx.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="time">
+                        {new Date(tx.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </td>
                     <td className="investor-cell">
                       <strong>{profile?.full_name || 'Unknown'}</strong>
@@ -323,25 +350,29 @@ export default function AdminPayments() {
                       <span>{profile?.phone}</span>
                     </td>
                     <td className="plan-cell">
-                      {investment?.investment_plan?.title || 'N/A'}
-                      <span className="payment-type">{investment?.payment_type}</span>
+                      <span className={`type-badge ${tx.type}`}>
+                        {isInstallment ? '💳 Installment' : '🏗️ New Investment'}
+                      </span>
+                      <span className="payment-type">{tx.payment_method}</span>
                     </td>
                     <td className="amount-cell">
                       ₦{tx.amount.toLocaleString()}
                     </td>
                     <td className="method-cell">
                       <span className={`method-badge ${tx.payment_method}`}>
-                        {tx.payment_method === 'bank_transfer' ? '🏦 Bank' : '💳 Flutterwave'}
+                        {tx.payment_method === 'bank_transfer' ? '🏦 Bank' : '💳 Card'}
                       </span>
                     </td>
                     <td className="proof-cell">
-                      {proofUrl ? (
+                      {proof?.file_url ? (
                         <button
-                        className="proof-link"
-                        onClick={() => window.open(proofUrl, '_blank')}
-                      >
-                        📄 View Proof
-                      </button>
+                          className="proof-link"
+                          onClick={() => setSelectedProof(proof)}
+                        >
+                          👁 View Proof
+                        </button>
+                      ) : tx.payment_method === 'flutterwave' ? (
+                        <span className="no-proof">Flutterwave</span>
                       ) : (
                         <span className="no-proof">No proof</span>
                       )}
@@ -349,10 +380,10 @@ export default function AdminPayments() {
                     <td className="actions-cell">
                       <button
                         className="verify-btn"
-                        onClick={() => verifyPayment(tx)}
+                        onClick={() => approvePayment(tx)}
                         disabled={processingId === tx.id}
                       >
-                        {processingId === tx.id ? '...' : '✓ Verify'}
+                        {processingId === tx.id ? '...' : '✓ Approve'}
                       </button>
                       <button
                         className="reject-btn"
@@ -370,6 +401,25 @@ export default function AdminPayments() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Proof Modal */}
+      {selectedProof && (
+        <div className="modal-overlay" onClick={() => setSelectedProof(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Payment Proof</h2>
+              <button className="modal-close" onClick={() => setSelectedProof(null)}>×</button>
+            </div>
+            <div className="modal-body" style={{ textAlign: 'center' }}>
+              {selectedProof.file_url?.includes('.pdf') ? (
+                <iframe src={selectedProof.file_url} width="100%" height="500px" />
+              ) : (
+                <img src={selectedProof.file_url} alt="Proof" style={{ maxWidth: '100%', borderRadius: '10px' }} />
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

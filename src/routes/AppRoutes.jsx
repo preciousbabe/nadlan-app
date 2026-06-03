@@ -15,8 +15,17 @@ import Signup from '../pages/Signup'
 import DashboardRoutes from '../dashboard/DashboardRoutes'
 import ProtectedRoute from '../components/ProtectedRoute'
 import GreenLayout from '../Layout/GreenLayout'
-import RealLayout from '../Layout/RealLayout';
+import RealLayout from '../Layout/RealLayout'
+import FooterLayout from '../Layout/FooterLayout'
 import ScrollToHash from '../components/ScrollToHash'
+
+import Blog from '../pages/Blog'
+import MarketReports from '../pages/MarketReports'
+import FAQs from '../pages/FAQs'
+import PrivacyPolicy from '../pages/PrivacyPolicy'
+import TermsOfService from '../pages/TermsOfService'
+import RiskDisclosure from '../pages/RiskDisclosure'
+import CookiePolicy from '../pages/CookiePolicy'
 
 export default function AppRoutes({ currentSection, setCurrentSection }) {
   return (
@@ -49,6 +58,18 @@ export default function AppRoutes({ currentSection, setCurrentSection }) {
       {/* AUTH — keep as-is or wrap if you want green nav there too */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+
+
+     {/* LEGAL & INFO PAGES — FooterLayout with just footer, no navbar */}
+        <Route element={<FooterLayout />}>
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/market-reports" element={<MarketReports />} />
+          <Route path="/faqs" element={<FAQs />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/risk" element={<RiskDisclosure />} />
+          <Route path="/cookies" element={<CookiePolicy />} />
+        </Route>
 
       {/* DASHBOARD */}
       <Route

@@ -7,10 +7,10 @@ export default function ScrollToHash() {
   useEffect(() => {
     const hash = location.hash
 
-    // 🚨 Ignore empty hash
+    // Ignore empty hash
     if (!hash) return
 
-    // 🚨 Ignore Supabase auth hashes (VERY IMPORTANT)
+    // Ignore Supabase auth hashes
     if (
       hash.includes('access_token') ||
       hash.includes('refresh_token') ||
@@ -20,22 +20,21 @@ export default function ScrollToHash() {
       return
     }
 
-    // Clean hash safely
     const id = hash.replace('#', '')
-
     if (!id) return
 
-    // Try safe selection
-    const element = document.getElementById(id)
-
-    if (element) {
-      setTimeout(() => {
+    // Delay to ensure DOM is ready after route change
+    const timer = setTimeout(() => {
+      const element = document.getElementById(id)
+      if (element) {
         element.scrollIntoView({
           behavior: 'smooth',
           block: 'start'
         })
-      }, 100)
-    }
+      }
+    }, 150)
+
+    return () => clearTimeout(timer)
   }, [location])
 
   return null

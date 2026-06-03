@@ -1,79 +1,108 @@
 import { useAuth } from '../../context/AuthContext'
 import useDashboardData from '../../hooks/useDashboardData'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '../../services/supabase'
 
-function ROICard({ investment }) {
-  const plan = investment.investment_plan
-  const amount = investment.amount || 0
+function ROICard({ investment, roiRecords }) {
+  const plan = investment?.investment_plan
+  const amount = investment?.amount || 0
+  const totalPaid = investment?.total_paid || 0
   const roiPercent = plan?.roi_percent || 0
   const durationMonths = plan?.duration_months || 12
-  const roiEarned = investment.roi_earned || 0
-  const progress = investment.progress || 0
-
-  // Calculate projected monthly ROI
-  const totalProjectedRoi = Math.round(amount * (roiPercent / 100))
-  const monthlyRoi = Math.round(totalProjectedRoi / durationMonths)
-  const remainingRoi = totalProjectedRoi - roiEarned
-
-  // Calculate completion percentage
-  const monthsElapsed = Math.round((progress / 100) * durationMonths)
-  const monthsRemaining = durationMonths - monthsElapsed
+  
+  // Only calculate ROI on fully paid investments
+  const isFullyPaid = (investment?.balance_remaining || 0) <= 0
+  
+  // Actual ROI earned from records
+  const totalEarned = roiRecords?.reduce((sum, r) => r.status === 'paid' ? sum + (r.roi_amount || 0) : sum, 0) || 0
+  const totalAccrued = roiRecords?.reduce((sum, r) => sum + (r.roi_amount || 0), 0) || 0
+  
+  // Projected total ROI (only meaningful if fully paid)
+  const totalProjectedRoi = isFullyPaid ? Math.round(amount * (roiPercent / 100)) : 0
+  
+  // Monthly ROI rate (if fully paid)
+  const monthlyRoi = isFullyPaid ? Math.round(totalProjectedRoi / durationMonths) : 0
 
   return (
-    <div className="roi-detail-card">
+    <div className={`roi-detail-card ${!isFullyPaid ? 'not-fully-paid' : ''}`}>
       <div className="roi-card-header">
         <h3>{plan?.title || 'Investment'}</h3>
-        <span className="roi-badge">{roiPercent}% ROI</span>
+        <div className="roi-badges">
+          <span className="roi-badge">{roiPercent}% ROI</span>
+          {!isFullyPaid && <span className="payment-badge">Payment Pending</span>}
+        </div>
       </div>
+
+      {!isFullyPaid && (
+        <div className="payment-notice">
+          <p>⚠️ ROI accrual begins after full payment. Balance remaining: ₦{(investment?.balance_remaining || 0).toLocaleString()}</p>
+        </div>
+      )}
 
       <div className="roi-metrics-grid">
         <div className="roi-metric">
-          <span className="metric-label">Principal</span>
+          <span className="metric-label">Total Invested</span>
           <span className="metric-value">₦{amount.toLocaleString()}</span>
         </div>
         <div className="roi-metric">
+          <span className="metric-label">Total Paid</span>
+          <span className="metric-value">₦{totalPaid.toLocaleString()}</span>
+        </div>
+        <div className="roi-metric">
           <span className="metric-label">ROI Earned</span>
-          <span className="metric-value earned">₦{roiEarned.toLocaleString()}</span>
+          <span className="metric-value earned">₦{totalEarned.toLocaleString()}</span>
+        </div>
+        <div className="roi-metric">
+          <span className="metric-label">Accrued (Pending)</span>
+          <span className="metric-value pending">₦{(totalAccrued - totalEarned).toLocaleString()}</span>
         </div>
         <div className="roi-metric">
           <span className="metric-label">Projected Total</span>
-          <span className="metric-value">₦{totalProjectedRoi.toLocaleString()}</span>
+          <span className="metric-value">
+            ₦{isFullyPaid ? totalProjectedRoi.toLocaleString() : 'Pending full payment'}
+          </span>
         </div>
         <div className="roi-metric">
-          <span className="metric-label">Remaining</span>
-          <span className="metric-value pending">₦{remainingRoi.toLocaleString()}</span>
+          <span className="metric-label">Monthly ROI</span>
+          <span className="metric-value">
+            {isFullyPaid ? `₦${monthlyRoi.toLocaleString()}/month` : 'N/A'}
+          </span>
         </div>
       </div>
 
-      <div className="roi-timeline">
-        <div className="timeline-header">
-          <span>Progress: {progress}%</span>
-          <span>{monthsElapsed} of {durationMonths} months</span>
+      {/* ROI Period History */}
+      {roiRecords && roiRecords.length > 0 && (
+        <div className="roi-history">
+          <h4>ROI Period History</h4>
+          <div className="roi-periods">
+            {roiRecords.map(record => (
+              <div key={record.id} className={`roi-period ${record.status}`}>
+                <span className="period-date">
+                  {new Date(record.period_start).toLocaleDateString('en-NG', { month: 'short', year: 'numeric' })}
+                </span>
+                <span className="period-amount">₦{(record.roi_amount || 0).toLocaleString()}</span>
+                <span className={`period-status ${record.status}`}>
+                  {record.status === 'paid' ? '✓ Paid' : record.status === 'pending' ? '⏳ Pending' : '⏳ Accrued'}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="progress-bar-bg">
-          <div 
-            className="progress-bar-fill"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <div className="timeline-footer">
-          <span>~₦{monthlyRoi.toLocaleString()}/month</span>
-          <span>{monthsRemaining} months remaining</span>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
 
-function EarningsSummary({ investments }) {
-  const totalPrincipal = investments.reduce((sum, inv) => sum + (inv.amount || 0), 0)
-  const totalEarned = investments.reduce((sum, inv) => sum + (inv.roi_earned || 0), 0)
-  const totalProjected = investments.reduce((sum, inv) => {
-    const roi = (inv.amount || 0) * ((inv.investment_plan?.roi_percent || 0) / 100)
-    return sum + roi
-  }, 0)
-  const avgRoiRate = investments.length > 0 
-    ? (investments.reduce((sum, inv) => sum + (inv.investment_plan?.roi_percent || 0), 0) / investments.length).toFixed(1)
+function EarningsSummary({ investments, roiRecords }) {
+  // Only count fully paid investments for ROI
+  const fullyPaidInvestments = investments?.filter(inv => (inv?.balance_remaining || 0) <= 0) || []
+  
+  const totalPrincipal = fullyPaidInvestments.reduce((sum, inv) => sum + (inv.amount || 0), 0)
+  const totalEarned = roiRecords?.filter(r => r.status === 'paid').reduce((sum, r) => sum + (r.roi_amount || 0), 0) || 0
+  const totalAccrued = roiRecords?.reduce((sum, r) => sum + (r.roi_amount || 0), 0) || 0
+  
+  const avgRoiRate = fullyPaidInvestments.length > 0 
+    ? (fullyPaidInvestments.reduce((sum, inv) => sum + (inv.investment_plan?.roi_percent || 0), 0) / fullyPaidInvestments.length).toFixed(1)
     : 0
 
   return (
@@ -81,22 +110,22 @@ function EarningsSummary({ investments }) {
       <div className="earnings-card">
         <div className="earnings-icon">💰</div>
         <div className="earnings-info">
-          <span className="earnings-label">Total Principal</span>
-          <span className="earnings-value">₦{totalPrincipal.toLocaleString()}</span>
+          <span className="earnings-label">Fully Paid Investments</span>
+          <span className="earnings-value">{fullyPaidInvestments.length}</span>
         </div>
       </div>
       <div className="earnings-card">
         <div className="earnings-icon">📈</div>
         <div className="earnings-info">
-          <span className="earnings-label">ROI Earned</span>
+          <span className="earnings-label">ROI Paid Out</span>
           <span className="earnings-value earned">₦{totalEarned.toLocaleString()}</span>
         </div>
       </div>
       <div className="earnings-card">
-        <div className="earnings-icon">🎯</div>
+        <div className="earnings-icon">⏳</div>
         <div className="earnings-info">
-          <span className="earnings-label">Projected Total</span>
-          <span className="earnings-value">₦{totalProjected.toLocaleString()}</span>
+          <span className="earnings-label">Accrued (Pending)</span>
+          <span className="earnings-value pending">₦{(totalAccrued - totalEarned).toLocaleString()}</span>
         </div>
       </div>
       <div className="earnings-card">
@@ -112,8 +141,33 @@ function EarningsSummary({ investments }) {
 
 export default function ROI() {
   const { user } = useAuth()
-  const { investments, loading } = useDashboardData(user)
-  const [view, setView] = useState('summary') // summary | breakdown
+  const { investments, loading, stats } = useDashboardData(user)
+  const [roiRecords, setRoiRecords] = useState([])
+  const [view, setView] = useState('summary')
+
+  useEffect(() => {
+    if (!user || !investments?.length) return
+    
+    async function fetchROIRecords() {
+      const investmentIds = investments.map(i => i.id)
+      if (investmentIds.length === 0) return
+      
+      const { data, error } = await supabase
+        .from('roi_records')
+        .select('*')
+        .in('investment_id', investmentIds)
+        .order('period_start', { ascending: false })
+      
+      if (error) {
+        console.error('ROI records fetch error:', error)
+        return
+      }
+      
+      setRoiRecords(data || [])
+    }
+    
+    fetchROIRecords()
+  }, [user, investments])
 
   if (loading) {
     return (
@@ -126,7 +180,8 @@ export default function ROI() {
     )
   }
 
-  const activeInvestments = investments.filter(inv => inv.status === 'active')
+  const fullyPaidInvestments = investments?.filter(inv => (inv?.balance_remaining || 0) <= 0) || []
+  const pendingPaymentInvestments = investments?.filter(inv => (inv?.balance_remaining || 0) > 0) || []
 
   return (
     <div className="dashboard-page">
@@ -148,82 +203,88 @@ export default function ROI() {
         </div>
       </div>
 
-      <EarningsSummary investments={investments} />
+      <EarningsSummary investments={investments} roiRecords={roiRecords} />
 
       {view === 'summary' ? (
-        <div className="roi-summary-view">
-          <div className="roi-chart-section">
-            <h3>Earnings Overview</h3>
-            <div className="earnings-breakdown">
-              <div className="breakdown-item">
-                <div className="breakdown-bar">
-                  <div 
-                    className="breakdown-fill earned"
-                    style={{ 
-                      width: `${investments.length > 0 ? (investments.reduce((s, i) => s + (i.roi_earned || 0), 0) / investments.reduce((s, i) => s + ((i.amount || 0) * ((i.investment_plan?.roi_percent || 0) / 100)), 0)) * 100 : 0}%` 
-                    }}
-                  />
+  <div className="roi-summary-view">
+    {/* Pending Payment Notice */}
+    {pendingPaymentInvestments.length > 0 && (
+      <div className="kyc-status-banner pending" style={{ marginBottom: '30px' }}>
+        <div className="kyc-status-icon">⏳</div>
+        <div className="kyc-status-info">
+          <h3>Pending Full Payment</h3>
+          <p>ROI accrual begins after these investments are fully paid:</p>
+          <div className="kyc-steps-list" style={{ marginTop: '16px', marginBottom: '0' }}>
+            {pendingPaymentInvestments.map(inv => (
+              <div key={inv.id} className="kyc-step-card" style={{ padding: '14px 18px' }}>
+                <div className="detail-row">
+                  <span style={{ fontSize: '14px', fontWeight: 500 }}>
+                    {inv.investment_plan?.title || 'Investment'}
+                  </span>
+                  <span style={{ color: '#FF9800', fontWeight: 600, fontSize: '14px' }}>
+                    Balance: ₦{(inv.balance_remaining || 0).toLocaleString()}
+                  </span>
                 </div>
-                <div className="breakdown-labels">
-                  <span>Earned</span>
-                  <span>Projected</span>
-                </div>
               </div>
-            </div>
-          </div>
-
-          <div className="roi-insights">
-            <h3>Investment Insights</h3>
-            <div className="insights-grid">
-              <div className="insight-card">
-                <h4>🏆 Top Performer</h4>
-                {activeInvestments.length > 0 ? (
-                  <>
-                    <p>{activeInvestments.reduce((max, inv) => 
-                      (inv.roi_earned || 0) > (max.roi_earned || 0) ? inv : max
-                    ).investment_plan?.title}</p>
-                    <span className="insight-value">
-                      ₦{Math.max(...activeInvestments.map(i => i.roi_earned || 0)).toLocaleString()} earned
-                    </span>
-                  </>
-                ) : (
-                  <p>No active investments</p>
-                )}
-              </div>
-              <div className="insight-card">
-                <h4>📅 Next Payout</h4>
-                <p>Estimated monthly distribution</p>
-                <span className="insight-value">
-                  ₦{Math.round(activeInvestments.reduce((sum, inv) => {
-                    const monthly = ((inv.amount || 0) * ((inv.investment_plan?.roi_percent || 0) / 100)) / (inv.investment_plan?.duration_months || 12)
-                    return sum + monthly
-                  }, 0)).toLocaleString()}/month
-                </span>
-              </div>
-              <div className="insight-card">
-                <h4>🎯 Completion Rate</h4>
-                <p>Average across all investments</p>
-                <span className="insight-value">
-                  {investments.length > 0 
-                    ? Math.round(investments.reduce((sum, inv) => sum + (inv.progress || 0), 0) / investments.length)
-                    : 0}%
-                </span>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
-      ) : (
+      </div>
+    )}
+
+    <h3 style={{ fontSize: '20px', fontWeight: 500, marginBottom: '20px', marginTop: '30px' }}>
+      Investment Insights
+    </h3>
+    <div className="insights-grid">
+      <div className="insight-card">
+        <h4>🏆 Top Earner</h4>
+        {roiRecords.filter(r => r.status === 'paid').length > 0 ? (
+          <>
+            <p>{fullyPaidInvestments.reduce((max, inv) => {
+              const invEarned = roiRecords.filter(r => r.investment_id === inv.id && r.status === 'paid').reduce((s, r) => s + (r.roi_amount || 0), 0)
+              const maxEarned = roiRecords.filter(r => r.investment_id === max.id && r.status === 'paid').reduce((s, r) => s + (r.roi_amount || 0), 0)
+              return invEarned > maxEarned ? inv : max
+            }).investment_plan?.title}</p>
+            <span className="insight-value">
+              ₦{Math.max(...roiRecords.filter(r => r.status === 'paid').map(r => r.roi_amount || 0)).toLocaleString()} paid
+            </span>
+          </>
+        ) : (
+          <p>No ROI paid yet</p>
+        )}
+      </div>
+      <div className="insight-card">
+        <h4>📅 Next Payout</h4>
+        <p>Estimated based on accrued ROI</p>
+        <span className="insight-value">
+          ₦{roiRecords.filter(r => r.status === 'accrued').reduce((sum, r) => sum + (r.roi_amount || 0), 0).toLocaleString()}
+        </span>
+      </div>
+      <div className="insight-card">
+        <h4>🎯 Fully Paid Rate</h4>
+        <p>Investments ready for ROI</p>
+        <span className="insight-value">
+          {investments?.length > 0 ? Math.round((fullyPaidInvestments.length / investments.length) * 100) : 0}%
+        </span>
+      </div>
+    </div>
+  </div>
+) : ( 
         <div className="roi-breakdown-view">
           <h3>Investment Breakdown</h3>
-          {activeInvestments.length > 0 ? (
-            activeInvestments.map(inv => (
-              <ROICard key={inv.id} investment={inv} />
+          {fullyPaidInvestments.length > 0 ? (
+            fullyPaidInvestments.map(inv => (
+              <ROICard 
+                key={inv.id} 
+                investment={inv} 
+                roiRecords={roiRecords.filter(r => r.investment_id === inv.id)}
+              />
             ))
           ) : (
             <div className="empty-state-large">
               <div className="empty-icon">📈</div>
-              <h3>No active investments</h3>
-              <p>Your ROI breakdown will appear here once you have active investments</p>
+              <h3>No fully paid investments</h3>
+              <p>ROI breakdown will appear once investments are fully paid</p>
             </div>
           )}
         </div>

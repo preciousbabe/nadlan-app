@@ -12,12 +12,12 @@ export default function Footer() {
     { to: '/projects', label: 'Our Projects' },
   ]
 
-  const companyLinks = [
-    { to: '/about', label: 'About Us' },
-    { to: '/careers', label: 'Careers' },
-    { to: '/contact', label: 'Contact' },
-    { to: '/blog', label: 'Blog' },
-  ]
+ const companyLinks = [
+  { to: '/cookies', label: 'Cookies' },
+  { to: '/market-reports', label: 'Marketplace' },
+  { to: '/blog', label: 'Blog' },
+  { to: '/about', label: 'About Us' },
+]
 
   return (
     <footer className="footer">
@@ -57,16 +57,16 @@ export default function Footer() {
           </div>
 
           {/* Company */}
-          <div className="footer__column">
-            <h4 className="footer__heading">Company</h4>
-            <ul className="footer__list">
-              {companyLinks.map((link) => (
-                <li key={link.to}>
-                  <Link to={link.to} className="footer__link">{link.label}</Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+        <div className="footer__column">
+          <h4 className="footer__heading">Explore</h4>
+          <ul className="footer__list">
+            {companyLinks.map((link) => (
+              <li key={link.to}>
+                <Link to={link.to} className="footer__link">{link.label}</Link>
+              </li>
+            ))}
+          </ul>
+        </div>
 
           {/* Contact */}
           <div className="footer__column">

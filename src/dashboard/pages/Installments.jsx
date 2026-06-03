@@ -2,148 +2,237 @@ import { useAuth } from '../../context/AuthContext'
 import useDashboardData from '../../hooks/useDashboardData'
 import { supabase } from '../../services/supabase'
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
-
-function InstallmentCard({ installment, investment, onPay }) {
-  const [paying, setPaying] = useState(false)
-  const isOverdue = new Date(installment.due_date) < new Date() && !installment.paid
-
-  async function handlePay() {
-    setPaying(true)
-    await onPay(installment)
-    setPaying(false)
-  }
+function InstallmentHistory({ installments }) {
+  if (!installments || installments.length === 0) return null
 
   return (
-    <div className={`installment-card ${installment.paid ? 'paid' : ''} ${isOverdue ? 'overdue' : ''}`}>
-      <div className="installment-header">
-        <div className="installment-plan-info">
-          <h4>{investment?.investment_plan?.title || 'Investment'}</h4>
-          <span className="installment-amount">₦{installment.amount?.toLocaleString()}</span>
+    <div className="installment-history">
+      <h4>Payment History</h4>
+      {installments.map(inst => (
+        <div key={inst.id} className={`installment-row ${inst.paid ? 'paid' : 'pending'}`}>
+          <div className="installment-info">
+            <span className="installment-number">#{inst.installment_number}</span>
+            <span className="installment-amount">₦{(inst.amount || 0).toLocaleString()}</span>
+            <span className="installment-date">
+              {inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('en-NG') : 'Pending'}
+            </span>
+          </div>
+          <div className={`installment-status ${inst.paid ? 'paid' : 'pending'}`}>
+            {inst.paid ? '✓ Paid' : '⏳ Pending'}
+          </div>
         </div>
-        <div className={`installment-status ${installment.paid ? 'paid' : isOverdue ? 'overdue' : 'pending'}`}>
-          {installment.paid ? '✓ Paid' : isOverdue ? '⚠ Overdue' : '⏳ Pending'}
-        </div>
-      </div>
-
-      <div className="installment-details">
-        <div className="detail-row">
-          <span>Due Date</span>
-          <span>{new Date(installment.due_date).toLocaleDateString('en-NG', { 
-            weekday: 'short', 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
-          })}</span>
-        </div>
-        <div className="detail-row">
-          <span>Investment Amount</span>
-          <span>₦{investment?.amount?.toLocaleString()}</span>
-        </div>
-        <div className="detail-row">
-          <span>Payment Type</span>
-          <span className="capitalize">{investment?.payment_type}</span>
-        </div>
-      </div>
-
-          {!installment.paid && (
-        <button 
-          className={`pay-installment-btn ${isOverdue ? 'overdue-btn' : ''}`}
-          onClick={handlePay}
-          disabled={paying || isOverdue}
-          title={isOverdue ? 'Contact support for overdue payments' : ''}
-        >
-          {paying ? 'Opening Payment...' : isOverdue ? 'Contact Support' : `Pay Installment`}
-        </button>
-      )}
+      ))}
     </div>
   )
 }
 
 export default function Installments() {
   const { user } = useAuth()
-  const { installments, investments, loading, refresh } = useDashboardData(user)
-  const [filter, setFilter] = useState('all')
+  const { investments, loading, refresh } = useDashboardData(user)
+  const [selectedInvestment, setSelectedInvestment] = useState(null)
+  const [payAmount, setPayAmount] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('flutterwave')
+  const [showPayModal, setShowPayModal] = useState(false)
   const [message, setMessage] = useState('')
+  const [proofFile, setProofFile] = useState(null)
+  const [uploading, setUploading] = useState(false)
   const navigate = useNavigate()
 
-   useEffect(() => {
+  useEffect(() => {
     if (message) {
       const timer = setTimeout(() => setMessage(''), 5000)
       return () => clearTimeout(timer)
     }
   }, [message])
 
-   async function handlePayInstallment(installment) {
-    const investment = investments.find(inv => inv.id === installment.investment_id)
-    const method = window.confirm('Pay with Flutterwave (Card)? Click Cancel for Bank Transfer.') 
-         ? 'flutterwave' : 'bank_transfer'
-    
+  const activeInvestments = investments?.filter(inv =>
+    inv.status === 'active' && (inv.balance_remaining || 0) > 0
+  ) || []
+
+  async function handlePayClick(investment) {
+    setSelectedInvestment(investment)
+    setPayAmount('')
+    setPaymentMethod('flutterwave')
+    setProofFile(null)
+    setShowPayModal(true)
+  }
+
+  async function handleSubmitPayment() {
+    if (!payAmount || Number(payAmount) <= 0) {
+      alert('Please enter a valid amount')
+      return
+    }
+    if (Number(payAmount) > selectedInvestment.balance_remaining) {
+      alert(`Amount cannot exceed remaining balance: ₦${selectedInvestment.balance_remaining.toLocaleString()}`)
+      return
+    }
+
+    setUploading(true)
+    setMessage('')
+
     try {
-      // 1. Create a pending transaction for this installment payment
-      const { data: tx, error: txError } = await supabase
+      const amount = Number(payAmount)
+      const txRef = `INST-${selectedInvestment.id}-${Date.now()}`
+
+      let paymentData = {
+        txRef,
+        amount,
+        paymentMethod,
+        status: 'pending'
+      }
+
+      if (paymentMethod === 'bank_transfer') {
+        if (!proofFile) {
+          alert('Please upload proof of payment')
+          setUploading(false)
+          return
+        }
+
+        const fileExt = proofFile.name.split('.').pop()
+        const fileName = `installment-proofs/${user.id}/${Date.now()}.${fileExt}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('payment-proofs')
+          .upload(fileName, proofFile)
+
+        if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`)
+
+        const { data, error: signedError } = await supabase.storage
+          .from('payment-proofs')
+          .createSignedUrl(fileName, 60 * 60 * 24 * 7)
+
+        if (signedError) throw new Error(`Signed URL failed: ${signedError.message}`)
+
+        paymentData.proof_path = fileName
+        paymentData.proof_url = data.signedUrl
+      }
+
+      const { data: txRecord, error: txError } = await supabase
         .from('transactions')
         .insert({
           user_id: user.id,
           type: 'installment_payment',
-          amount: installment.amount,
+          amount: amount,
           status: 'pending',
-          reference: `INST-${installment.id}-${Date.now()}`,
-         payment_method: method, 
+          reference: txRef,
+          payment_method: paymentMethod,
           metadata: {
-            installment_id: installment.id,
-            investment_id: investment.id,
-            tier: investment?.investment_plan?.title || 'Investment'
+            investment_id: selectedInvestment.id,
+            investment_plan: selectedInvestment.investment_plan?.title,
+            ...(paymentData.proof_url && { proof_url: paymentData.proof_url }),
+            ...(paymentData.proof_path && { proof_path: paymentData.proof_path })
           }
         })
         .select()
         .single()
 
-      if (txError) throw txError
+      if (txError) throw new Error(`Transaction failed: ${txError.message}`)
 
-            // After creating transaction:
-      await supabase
-        .from('installments')
-        .update({ transaction_id: tx.id })
-        .eq('id', installment.id)
+      if (paymentMethod === 'bank_transfer' && paymentData.proof_path) {
+        const { error: proofError } = await supabase.from('payment_proofs').insert({
+          user_id: user.id,
+          transaction_id: txRecord.id,
+          investment_id: selectedInvestment.id,
+          file_path: paymentData.proof_path,
+          file_url: paymentData.proof_url,
+          status: 'pending'
+        })
 
-      // 2. Redirect to payment page or open payment modal
-      setMessage('Installment payment submitted. Awaiting admin approval.')
-      
-      // 3. Refresh data after a moment
-           setTimeout(() => {
+        if (proofError) throw new Error(`Proof save failed: ${proofError.message}`)
+      }
+
+      setMessage('✅ Payment submitted! Awaiting admin approval.')
+      setShowPayModal(false)
+      setPayAmount('')
+      setProofFile(null)
+
+      setTimeout(() => {
         if (typeof refresh === 'function') refresh()
-        else window.location.reload()
-       }, 2000)
-      
+      }, 2000)
+
     } catch (err) {
-      console.error('Installment payment error:', err)
-      setMessage('Payment failed: ' + (err.message || 'Unknown error'))
+      setMessage('❌ Payment failed: ' + (err.message || 'Unknown error'))
+      alert('Payment failed: ' + (err.message || 'Unknown error'))
+    } finally {
+      setUploading(false)
     }
   }
 
-  const filteredInstallments = installments.filter(inst => {
-    if (filter === 'all') return true
-    if (filter === 'paid') return inst.paid
-    if (filter === 'pending') return !inst.paid
-    return true
-  })
+  function handleFlutterwavePayment() {
+    if (!payAmount || Number(payAmount) <= 0) {
+      alert('Please enter amount first')
+      return
+    }
 
-  const upcomingTotal = installments
-    .filter(i => !i.paid)
-    .reduce((sum, i) => sum + i.amount, 0)
+    const amount = Number(payAmount)
+    const txRef = `INST-${selectedInvestment.id}-${Date.now()}`
 
-  const paidTotal = installments
-    .filter(i => i.paid)
-    .reduce((sum, i) => sum + i.amount, 0)
+    if (!window.FlutterwaveCheckout) {
+      const script = document.createElement('script')
+      script.src = 'https://checkout.flutterwave.com/v3.js'
+      script.async = true
+      script.onload = () => openFlutterwave(amount, txRef)
+      script.onerror = () => alert('Failed to load payment system. Please check your internet connection.')
+      document.body.appendChild(script)
+      return
+    }
+
+    openFlutterwave(amount, txRef)
+  }
+
+  function openFlutterwave(amount, txRef) {
+    if (!window.FlutterwaveCheckout) {
+      alert('Payment system still loading... please try again.')
+      return
+    }
+
+    window.FlutterwaveCheckout({
+      public_key: import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY,
+      tx_ref: txRef,
+      amount: amount,
+      currency: 'NGN',
+      payment_options: 'card,ussd,banktransfer,account',
+      customer: {
+        email: user.email,
+        phone_number: '',
+        name: user.email?.split('@')[0] || 'NADLAN Investor',
+      },
+      customizations: {
+        title: 'NADLAN Installment',
+        description: `Installment payment of ₦${amount.toLocaleString()} for ${selectedInvestment.investment_plan?.title}`,
+      },
+      callback: function (response) {
+        supabase.from('transactions').insert({
+          user_id: user.id,
+          type: 'installment_payment',
+          amount: amount,
+          status: 'pending',
+          reference: txRef,
+          payment_method: 'flutterwave',
+          metadata: {
+            investment_id: selectedInvestment.id,
+            investment_plan: selectedInvestment.investment_plan?.title,
+            flutterwave_tx_id: response.transaction_id
+          }
+        }).then(() => {
+          setMessage('✅ Payment submitted! Awaiting admin approval.')
+          setShowPayModal(false)
+          setPayAmount('')
+          setTimeout(() => refresh(), 2000)
+        })
+      },
+      onclose: function () { }
+    })
+  }
 
   if (loading) {
     return (
       <div className="dashboard-page">
         <div className="dashboard-loading">
           <div className="spinner"></div>
-          <p>Loading installments...</p>
+          <p>Loading...</p>
         </div>
       </div>
     )
@@ -152,71 +241,220 @@ export default function Installments() {
   return (
     <div className="dashboard-page">
       <div className="installments-header">
-        <h1>Payment Schedule</h1>
-        {message && <div className={`message-toast ${message.includes('successful') ? 'success' : 'error'}`}>{message}</div>}
-      </div>
-
-      {/* Summary */}
-      <div className="installments-summary">
-        <div className="summary-card">
-          <span className="summary-label">Total Installments</span>
-          <span className="summary-value">{installments.length}</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">Paid</span>
-          <span className="summary-value" style={{ color: '#4CAF50' }}>
-            ₦{paidTotal.toLocaleString()}
-          </span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">Upcoming</span>
-          <span className="summary-value" style={{ color: '#FF9800' }}>
-            ₦{upcomingTotal.toLocaleString()}
-          </span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">Pending</span>
-          <span className="summary-value">
-            {installments.filter(i => !i.paid).length}
-          </span>
-        </div>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="filter-tabs">
-        {['all', 'pending', 'paid'].map(status => (
-          <button
-            key={status}
-            className={filter === status ? 'active' : ''}
-            onClick={() => setFilter(status)}
-          >
-            {status.charAt(0).toUpperCase() + status.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Installments Grid */}
-      <div className="installments-grid">
-        {filteredInstallments.length > 0 ? (
-          filteredInstallments.map(inst => {
-            const investment = investments.find(inv => inv.id === inst.investment_id)
-            return (
-              <InstallmentCard
-                key={inst.id}
-                installment={inst}
-                investment={investment}
-                onPay={handlePayInstallment}
-              />
-            )
-          })
-        ) : (
-          <div className="empty-state-large">
-            <div className="empty-icon">💳</div>
-            <h3>No installments found</h3>
-            <p>Your payment schedule will appear here when you make an installment-based investment</p>
+        <h1>💳 My Installments</h1>
+        {message && (
+          <div className={`message-toast ${message.includes('✅') ? 'success' : 'error'}`}>
+            {message}
           </div>
         )}
       </div>
+
+      {activeInvestments.length === 0 ? (
+        <div className="empty-state-large">
+          <div className="empty-icon">🏗️</div>
+          <h3>No Active Investments with Balance</h3>
+          <p>You don't have any active investments with a remaining balance to pay.</p>
+          <Link to="/dashboard/plans" className="new-investment-btn">
+            Browse Investment Plans
+          </Link>
+        </div>
+      ) : (
+        <div className="investments-list">
+          {activeInvestments.map(inv => {
+            const plan = inv.investment_plan
+            const progress = ((inv.total_paid || 0) / inv.amount) * 100
+
+            return (
+              <div key={inv.id} className="installment-card">
+                <div className="installment-header">
+                  <div className="installment-plan-info">
+                    <h4>{plan?.title || 'Investment'}</h4>
+                  </div>
+                  <span className={`investment-status-badge ${inv.status}`}>{inv.status}</span>
+                </div>
+
+                <div className="progress-section">
+                  <div className="progress-header">
+                    <span>Payment Progress</span>
+                    <span>{Math.round(progress)}%</span>
+                  </div>
+                  <div className="progress-bar-bg">
+                    <div
+                      className="progress-bar-fill"
+                      style={{ width: `${Math.min(progress, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="detail-grid">
+                  <div className="detail-item">
+                    <span className="detail-label">Total Amount</span>
+                    <span className="detail-value">₦{(inv.amount || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Total Paid</span>
+                    <span className="detail-value" style={{ color: '#4CAF50' }}>
+                      ₦{(inv.total_paid || 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Balance</span>
+                    <span className="detail-value" style={{ color: '#FF9800' }}>
+                      ₦{(inv.balance_remaining || 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                <InstallmentHistory installments={inv.installments} />
+
+                <button
+                  className="pay-installment-btn"
+                  onClick={() => handlePayClick(inv)}
+                  disabled={(inv.balance_remaining || 0) <= 0}
+                >
+                  💳 Make Payment
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {showPayModal && selectedInvestment && (
+        <div className="modal-overlay" onClick={() => setShowPayModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Make Payment</h2>
+              <button className="modal-close" onClick={() => setShowPayModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="investment-summary">
+                <div className="summary-row">
+                  <span>Investment</span>
+                  <span>{selectedInvestment.investment_plan?.title}</span>
+                </div>
+                <div className="summary-row">
+                  <span>Balance Remaining</span>
+                  <span style={{ color: '#FF9800', fontWeight: 600 }}>
+                    ₦{(selectedInvestment.balance_remaining || 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="amount-input-group">
+                <label>Amount to Pay (₦)</label>
+                <input
+                  type="number"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  min="1"
+                  max={selectedInvestment.balance_remaining}
+                  placeholder="Enter amount"
+                  className="amount-input"
+                />
+                <button
+                  className="refresh-btn"
+                  onClick={() => setPayAmount((selectedInvestment.balance_remaining || 0).toString())}
+                >
+                  Max
+                </button>
+              </div>
+
+              {payAmount && Number(payAmount) > 0 && (
+                <div className="earnings-card">
+                  <div className="earnings-info">
+                    <span className="earnings-label">You will pay</span>
+                    <span className="earnings-value" style={{ color: '#4CAF50' }}>
+                      ₦{Number(payAmount).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="payment-type-group">
+                <label>Payment Method</label>
+                <div className="payment-options">
+                  <button
+                    className={paymentMethod === 'flutterwave' ? 'active' : ''}
+                    onClick={() => setPaymentMethod('flutterwave')}
+                  >
+                    💳 Flutterwave
+                  </button>
+                  <button
+                    className={paymentMethod === 'bank_transfer' ? 'active' : ''}
+                    onClick={() => setPaymentMethod('bank_transfer')}
+                  >
+                    🏦 Bank Transfer
+                  </button>
+                </div>
+              </div>
+
+              {paymentMethod === 'bank_transfer' && (
+                <>
+                  <div className="bank-transfer-section">
+                    <h4>🏦 Bank Transfer Details</h4>
+                    <p className="bank-transfer-note">
+                      Transfer <strong>₦{(payAmount && Number(payAmount) > 0) ? Number(payAmount).toLocaleString() : '0'}</strong> to:
+                    </p>
+                    
+                    <div className="bank-account-card primary">
+                      <span className="bank-label">Bank</span>
+                      <p className="bank-name">Guaranty Trust Bank (GTBank)</p>
+                      <span className="bank-label">Account Name</span>
+                      <p className="account-name">NADLAN Investment Limited</p>
+                      <span className="bank-label">Account Number</span>
+                      <div className="account-number-row">
+                        <span className="account-number">0123456789</span>
+                        <button className="copy-btn" onClick={() => navigator.clipboard.writeText('0123456789')}>
+                          Copy
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="proof-upload-section">
+                    <label className="proof-label">Upload Proof of Payment</label>
+                    <p className="proof-hint">Screenshot, receipt, or bank transfer confirmation</p>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) => setProofFile(e.target.files[0])}
+                    />
+                    {proofFile && <p className="file-selected">✓ {proofFile.name}</p>}
+                  </div>
+                </>
+              )}
+
+              <div className="bank-transfer-actions">
+                <button
+                  className="cancel-btn"
+                  onClick={() => setShowPayModal(false)}
+                >
+                  Cancel
+                </button>
+                {paymentMethod === 'flutterwave' ? (
+                  <button
+                    className="confirm-invest-btn"
+                    onClick={handleFlutterwavePayment}
+                    disabled={!payAmount || Number(payAmount) <= 0 || uploading}
+                  >
+                    {uploading ? 'Processing...' : `💳 Pay ₦${(payAmount && Number(payAmount) > 0) ? Number(payAmount).toLocaleString() : '0'} with Flutterwave`}
+                  </button>
+                ) : (
+                  <button
+                    className="confirm-invest-btn"
+                    onClick={handleSubmitPayment}
+                    disabled={!payAmount || !proofFile || uploading}
+                  >
+                    {uploading ? 'Uploading...' : 'Submit Payment'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

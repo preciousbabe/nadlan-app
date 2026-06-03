@@ -605,6 +605,7 @@
     justify-content: space-between;
     align-items: center;
     color: #000;
+    background: #F9A825;
     border-radius: 20px 20px 0 0;
 }
 
@@ -2977,4 +2978,132 @@
   top: -18px;
   font-size: 11px;
   color: #666;
+}
+
+
+/* =========================
+   SPLASH SCREEN / APP LOADER
+========================= */
+
+.splash-screen {
+    position: fixed;
+    inset: 0;
+    background: #0A0A0A;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.splash-screen.fade-out {
+    animation: fadeOut 0.5s ease forwards;
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; visibility: hidden; }
+}
+
+.splash-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    animation: slideUp 0.6s ease 0.2s both;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Logo with pulsing glow animation */
+.splash-logo {
+    font-size: 42px;
+    font-weight: 700;
+    letter-spacing: 6px;
+    color: #C9A962;
+    text-transform: uppercase;
+    margin: 0;
+    animation: logoPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+    0%, 100% {
+        text-shadow: 0 0 20px rgba(201, 169, 98, 0.2),
+                     0 0 40px rgba(201, 169, 98, 0.1),
+                     0 0 60px rgba(201, 169, 98, 0.05);
+        transform: scale(1);
+    }
+    50% {
+        text-shadow: 0 0 30px rgba(201, 169, 98, 0.4),
+                     0 0 60px rgba(201, 169, 98, 0.2),
+                     0 0 90px rgba(201, 169, 98, 0.1);
+        transform: scale(1.02);
+    }
+}
+
+/* Progress bar track */
+.splash-progress-track {
+    width: 180px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    opacity: 0;
+    animation: fadeIn 0.4s ease 0.5s both;
+}
+
+/* Progress bar fill with shimmer */
+.splash-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #C9A962, #E8D5A3, #C9A962);
+    background-size: 200% 100%;
+    border-radius: 2px;
+    transition: width 0.1s linear;
+    box-shadow: 0 0 10px rgba(201, 169, 98, 0.4);
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.splash-tagline {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 0;
+    opacity: 0;
+    animation: fadeIn 0.4s ease 0.8s both;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .splash-logo {
+        font-size: 32px;
+        letter-spacing: 4px;
+    }
+    
+    .splash-progress-track {
+        width: 140px;
+    }
+    
+    .splash-tagline {
+        font-size: 11px;
+    }
 }
