@@ -18,6 +18,7 @@ import GreenLayout from '../Layout/GreenLayout'
 import RealLayout from '../Layout/RealLayout'
 import FooterLayout from '../Layout/FooterLayout'
 import ScrollToHash from '../components/ScrollToHash'
+import ScrollToTop from '../components/ScrollToTop'
 
 import Blog from '../pages/Blog'
 import MarketReports from '../pages/MarketReports'
@@ -29,38 +30,39 @@ import CookiePolicy from '../pages/CookiePolicy'
 
 export default function AppRoutes({ currentSection, setCurrentSection }) {
   return (
-  <>
-    <ScrollToHash />
+    <>
+      <ScrollToTop />
+      <ScrollToHash />
 
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <Home
-            currentSection={currentSection}
-            setCurrentSection={setCurrentSection}
-          />
-        }
-      />
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <Home
+              currentSection={currentSection}
+              setCurrentSection={setCurrentSection}
+            />
+          }
+        />
         <Route path="/auth/confirm" element={<Confirm />} />
-      {/* REAL ESTATE — uses your existing Navbar/Footer */}
-       <Route path="/properties" element={<RealLayout><Properties /></RealLayout>} />
-      <Route path="/developments" element={<RealLayout><Developments /></RealLayout>} />
-      <Route path="/investments" element={<RealLayout><Investments /></RealLayout>} />
-      <Route path="/about" element={<RealLayout><About /></RealLayout>} />
 
-      {/* GREEN ENERGY — wrapped with GreenLayout (NavbarGreen + FooterGreen) */}
-      <Route path="/solar" element={<GreenLayout><Solar /></GreenLayout>} />
-      <Route path="/energy" element={<GreenLayout><Energy /></GreenLayout>} />
-      <Route path="/sustainability" element={<GreenLayout><Sustainability /></GreenLayout>} />
-      <Route path="/projects" element={<GreenLayout><Projects /></GreenLayout>} />
+        {/* REAL ESTATE */}
+        <Route path="/properties" element={<RealLayout><Properties /></RealLayout>} />
+        <Route path="/developments" element={<RealLayout><Developments /></RealLayout>} />
+        <Route path="/investments" element={<RealLayout><Investments /></RealLayout>} />
+        <Route path="/about" element={<RealLayout><About /></RealLayout>} />
 
-      {/* AUTH — keep as-is or wrap if you want green nav there too */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
+        {/* GREEN ENERGY */}
+        <Route path="/solar" element={<GreenLayout><Solar /></GreenLayout>} />
+        <Route path="/energy" element={<GreenLayout><Energy /></GreenLayout>} />
+        <Route path="/sustainability" element={<GreenLayout><Sustainability /></GreenLayout>} />
+        <Route path="/projects" element={<GreenLayout><Projects /></GreenLayout>} />
 
+        {/* AUTH */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
 
-     {/* LEGAL & INFO PAGES — FooterLayout with just footer, no navbar */}
+        {/* LEGAL & INFO PAGES — FooterLayout */}
         <Route element={<FooterLayout />}>
           <Route path="/blog" element={<Blog />} />
           <Route path="/market-reports" element={<MarketReports />} />
@@ -71,16 +73,16 @@ export default function AppRoutes({ currentSection, setCurrentSection }) {
           <Route path="/cookies" element={<CookiePolicy />} />
         </Route>
 
-      {/* DASHBOARD */}
-      <Route
-        path="/dashboard/*"
-        element={
-          <ProtectedRoute>
-            <DashboardRoutes />
-          </ProtectedRoute>
-        }
-      />
-       </Routes>
-  </>
-)
+        {/* DASHBOARD */}
+        <Route
+          path="/dashboard/*"
+          element={
+            <ProtectedRoute>
+              <DashboardRoutes />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </>
+  )
 }

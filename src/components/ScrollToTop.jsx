@@ -5,10 +5,9 @@ export default function ScrollToTop() {
   const { pathname, hash } = useLocation()
 
   useEffect(() => {
-    // Only scroll to top when pathname changes AND there's no hash
-    // If there's a hash, let ScrollToHash handle the scrolling
+    // Only scroll to top if there's NO hash (hash scrolling is handled by ScrollToHash)
     if (!hash) {
-      window.scrollTo({ top: 0, behavior: 'instant' })
+      window.scrollTo({ top: 0, behavior: 'instant' }) // 'instant' avoids visual jump
     }
   }, [pathname, hash])
 

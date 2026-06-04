@@ -781,9 +781,14 @@ function InvestmentModal({ tier, onClose, user, profile }) {
 
 export default function InvestmentPlans() {
   const { user } = useAuth()
-  const { plans: dbPlans, profile, loading } = useDashboardData(user)
+  const { plans: dbPlans, profile, loading, refresh } = useDashboardData(user)  // ← get refresh
   const [selectedTier, setSelectedTier] = useState(null)
 
+   useEffect(() => {
+    refresh?.()
+  }, [])
+
+  
   const displayPlans = dbPlans.length > 0
     ? dbPlans.map(plan => {
         const tier = TIERS.find(t => t.name === plan.title?.split(' ')[0]) || TIERS[0]

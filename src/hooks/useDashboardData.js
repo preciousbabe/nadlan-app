@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../services/supabase'
 
 export default function useDashboardData(user) {
@@ -19,25 +19,28 @@ export default function useDashboardData(user) {
     loading: true
   })
 
-  useEffect(() => {
+  // Extract fetch logic into useCallback so it can be called manually
+  const fetchAllData = useCallback(async () => {
     if (!user) {
-      setData(prev => ({
-        ...prev,
-        loading: false,
+      setData({
         profile: null,
         isAdmin: false,
         investments: [],
         transactions: [],
         installments: [],
-        plans: []
-      }))
+        plans: [],
+        stats: {
+          totalInvested: 0,
+          totalPaid: 0,
+          totalBalance: 0,
+          activeInvestments: 0,
+          pendingPayments: 0
+        },
+        loading: false
+      })
       return
     }
 
-    fetchAllData()
-  }, [user])
-
-  async function fetchAllData() {
     setData(prev => ({ ...prev, loading: true }))
 
     try {
@@ -58,7 +61,7 @@ export default function useDashboardData(user) {
 
       if (plansError) throw plansError
 
-      // 3. Fetch user investments (NO nested joins — plain select)
+      // 3. Fetch user investments
       const { data: investments, error: investmentsError } = await supabase
         .from('user_investments')
         .select('*')
@@ -76,7 +79,7 @@ export default function useDashboardData(user) {
 
       if (transactionsError) throw transactionsError
 
-      // 5. Fetch installments for all investments
+      // 5. Fetch installments
       let allInstallments = []
       const investmentIds = (investments || []).map(i => i.id)
 
@@ -94,7 +97,7 @@ export default function useDashboardData(user) {
         }
       }
 
-      // 6. Manually attach investment plans and installments to investments
+      // 6. Enrich investments
       const enrichedInvestments = (investments || []).map(inv => {
         const plan = (plans || []).find(p => p.id === inv.investment_plan_id)
         const invInstallments = allInstallments.filter(inst => inst.investment_id === inv.id)
@@ -133,10 +136,14 @@ export default function useDashboardData(user) {
       console.error('Dashboard error:', error)
       setData(prev => ({ ...prev, loading: false }))
     }
-  }
+  }, [user])
+
+  // Auto-fetch on mount / user change
+  useEffect(() => {
+    fetchAllData()
+  }, [fetchAllData])
 
   async function refresh() {
-    setData(prev => ({ ...prev, loading: true }))
     await fetchAllData()
   }
 

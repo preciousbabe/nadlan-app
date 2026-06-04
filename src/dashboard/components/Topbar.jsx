@@ -1,11 +1,16 @@
 import { useAuth } from '../../context/AuthContext'
 import { useDashboard } from '../../context/DashboardContext'
-
 import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
 
 export default function Topbar() {
   const { user } = useAuth()
-  const { setSidebarOpen, profile, unreadCount } = useDashboard()
+  const { setSidebarOpen, profile, unreadCount, refreshProfile } = useDashboard()  // ← get refreshProfile
+
+  // Refresh profile on mount to catch any DB updates (like KYC status)
+  useEffect(() => {
+    refreshProfile?.()
+  }, [])  // run once on mount
 
   const kycStatus = profile?.kyc_status || 'pending'
   const kycColor = kycStatus === 'verified' ? '#4CAF50' : kycStatus === 'pending' ? '#FFC107' : '#FF4D4D'

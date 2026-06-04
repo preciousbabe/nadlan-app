@@ -1,7 +1,7 @@
 import { useAuth } from '../../context/AuthContext'
 import { useDashboard } from '../../context/DashboardContext'
 import { supabase } from '../../services/supabase'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
 const TYPE_CONFIG = {
@@ -53,43 +53,56 @@ function NotificationItem({ notification, onRead }) {
 
 export default function Notifications() {
   const { user } = useAuth()
-  const { notifications } = useDashboard()
+  const { notifications: contextNotifications } = useDashboard()
   const [filter, setFilter] = useState('all')
+  
+  const [localNotifications, setLocalNotifications] = useState([])
 
-  // Guard against undefined/null
-  const safeNotifications = notifications || []
+  useEffect(() => {
+    setLocalNotifications(contextNotifications || [])
+  }, [contextNotifications])
 
-  const filtered = safeNotifications.filter(n => {
+  const filtered = localNotifications.filter(n => {
     if (filter === 'all') return true
     if (filter === 'unread') return !n.read
     return n.type === filter
   })
 
-  const unreadCount = safeNotifications.filter(n => !n.read).length
+  const unreadCount = localNotifications.filter(n => !n.read).length
 
   async function markAsRead(id) {
+    setLocalNotifications(prev => 
+      prev.map(n => n.id === id ? { ...n, read: true } : n)
+    )
+
     const { error } = await supabase
       .from('notifications')
       .update({ read: true })
       .eq('id', id)
 
-    if (error) console.error('Mark as read error:', error)
-    // useBootstrap will refetch on next mount, or you can trigger a refresh
+    if (error) {
+      console.error('Mark as read error:', error)
+    }
   }
 
   async function markAllAsRead() {
+    setLocalNotifications(prev => 
+      prev.map(n => ({ ...n, read: true }))
+    )
+
     const { error } = await supabase
       .from('notifications')
       .update({ read: true })
       .eq('user_id', user.id)
       .eq('read', false)
 
-    if (error) console.error('Mark all as read error:', error)
+    if (error) {
+      console.error('Mark all as read error:', error)
+    }
   }
 
   return (
     <div className="dashboard-page">
-
       <div className="notifications-header">
         <h1>Notifications</h1>
 
