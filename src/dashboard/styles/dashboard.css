@@ -2203,6 +2203,66 @@
     color: #4CAF50;
 }
 
+/* Installment duration section */
+.installment-duration-group {
+  margin: 20px 0 16px 0;
+}
+
+.installment-duration-group label {
+  display: block;
+  color: #888;
+  font-size: 13px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+/* Styled dropdown */
+.duration-select {
+  width: 100%;
+  padding: 14px 40px 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23C9A962' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.duration-select:hover {
+  border-color: rgba(201, 169, 98, 0.4);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.duration-select:focus {
+  outline: none;
+  border-color: #C9A962;
+  background-color: rgba(201, 169, 98, 0.05);
+}
+
+/* Dropdown options styling */
+.duration-select option {
+  background: #1a1a1a;
+  color: #fff;
+  padding: 10px;
+  font-size: 15px;
+}
+
+/* Firefox specific fix */
+.duration-select:-moz-focusring {
+  color: transparent;
+  text-shadow: 0 0 0 #fff;
+}
+
 .trend-period {
     font-size: 13px;
     color: rgba(255, 255, 255, 0.5);
@@ -2823,6 +2883,44 @@
 }
 
 .payment-method-options button.active {
+  border-color: #C9A962;
+  background: rgba(201, 169, 98, 0.1);
+  color: #C9A962;
+}
+
+/* Add these to your CSS file */
+
+.payment-mode-group {
+  margin: 20px 0 12px 0;
+}
+
+.payment-mode-group label {
+  display: block;
+  color: #888;
+  font-size: 13px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.payment-mode-options {
+  display: flex;
+  gap: 10px;
+}
+
+.payment-mode-options button {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  color: #888;
+  cursor: pointer;
+  font-size: 14px;
+  text-align: left;
+}
+
+.payment-mode-options button.active {
   border-color: #C9A962;
   background: rgba(201, 169, 98, 0.1);
   color: #C9A962;

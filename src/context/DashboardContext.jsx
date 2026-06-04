@@ -10,15 +10,20 @@ export function DashboardProvider({ children }) {
   const { user } = useAuth()
   const { profile: bootProfile, notifications, loading: bootLoading } = useBootstrap(user)
   
-  // Store profile in state so we can update it
   const [profile, setProfile] = useState(bootProfile)
+  const [localNotifications, setLocalNotifications] = useState(notifications || [])
+  const [profileReady, setProfileReady] = useState(false)  // ← ADD THIS
 
-  // Sync when bootstrap profile changes
+  // Sync when bootstrap data changes
   useEffect(() => {
     setProfile(bootProfile)
   }, [bootProfile])
 
-  const unreadCount = notifications.filter(n => !n.read).length
+  useEffect(() => {
+    setLocalNotifications(notifications || [])
+  }, [notifications])
+
+  const unreadCount = localNotifications.filter(n => !n.read).length
 
   // Refresh profile from DB
   const refreshProfile = useCallback(async () => {
@@ -32,6 +37,25 @@ export function DashboardProvider({ children }) {
     
     if (!error && data) {
       setProfile(data)
+      setProfileReady(true)  // ← MARK AS READY
+    }
+  }, [user])
+
+  // Refresh notifications from DB
+  const refreshNotifications = useCallback(async () => {
+    if (!user?.id) {
+      setLocalNotifications([])
+      return
+    }
+    
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+    
+    if (!error && data) {
+      setLocalNotifications(data)
     }
   }, [user])
 
@@ -57,11 +81,13 @@ export function DashboardProvider({ children }) {
         sidebarOpen,
         setSidebarOpen,
         profile,
-        notifications,
+        profileReady,  // ← EXPOSE THIS
+        notifications: localNotifications,
         unreadCount,
         bootLoading,
         updateProfile,
-        refreshProfile
+        refreshProfile,
+        refreshNotifications
       }}
     >
       {children}

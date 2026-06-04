@@ -34,12 +34,6 @@ function NotificationItem({ notification, onRead }) {
         <p>{notification.message}</p>
 
         <div className="notification-actions">
-          {notification.action_path && (
-            <Link to={notification.action_path}>
-              View →
-            </Link>
-          )}
-
           {!notification.read && (
             <button onClick={() => onRead(notification.id)}>
               Mark as read
@@ -53,7 +47,7 @@ function NotificationItem({ notification, onRead }) {
 
 export default function Notifications() {
   const { user } = useAuth()
-  const { notifications: contextNotifications } = useDashboard()
+  const { notifications: contextNotifications, refreshNotifications } = useDashboard()
   const [filter, setFilter] = useState('all')
   
   const [localNotifications, setLocalNotifications] = useState([])
@@ -71,10 +65,12 @@ export default function Notifications() {
   const unreadCount = localNotifications.filter(n => !n.read).length
 
   async function markAsRead(id) {
+    // Optimistic update locally
     setLocalNotifications(prev => 
       prev.map(n => n.id === id ? { ...n, read: true } : n)
     )
 
+    // Update DB
     const { error } = await supabase
       .from('notifications')
       .update({ read: true })
@@ -82,14 +78,19 @@ export default function Notifications() {
 
     if (error) {
       console.error('Mark as read error:', error)
+    } else {
+      // Refresh context notifications so Topbar badge updates
+      await refreshNotifications?.()
     }
   }
 
   async function markAllAsRead() {
+    // Optimistic update locally
     setLocalNotifications(prev => 
       prev.map(n => ({ ...n, read: true }))
     )
 
+    // Update DB
     const { error } = await supabase
       .from('notifications')
       .update({ read: true })
@@ -98,6 +99,9 @@ export default function Notifications() {
 
     if (error) {
       console.error('Mark all as read error:', error)
+    } else {
+      // Refresh context notifications so Topbar badge updates
+      await refreshNotifications?.()
     }
   }
 

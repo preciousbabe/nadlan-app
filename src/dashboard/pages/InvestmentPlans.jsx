@@ -1,6 +1,7 @@
 import { Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { useDashboard } from '../../context/DashboardContext'
 import useDashboardData from '../../hooks/useDashboardData'
 import { supabase } from '../../services/supabase'
 
@@ -643,6 +644,8 @@ function InvestmentModal({ tier, onClose, user, profile }) {
             </div>
           </div>
 
+          
+
           {/* Installment Duration (only if installment selected) */}
           {paymentMode === 'installment' && (
             <div className="installment-duration-group">
@@ -779,22 +782,35 @@ function InvestmentModal({ tier, onClose, user, profile }) {
   )
 }
 
+
 export default function InvestmentPlans() {
   const { user } = useAuth()
-  const { plans: dbPlans, profile, loading, refresh } = useDashboardData(user)  // ← get refresh
+  const { profile, profileReady, refreshProfile } = useDashboard()  // ← GET profileReady
+  const { plans: dbPlans, loading, refresh } = useDashboardData(user)
+  
   const [selectedTier, setSelectedTier] = useState(null)
 
-   useEffect(() => {
+  // Refresh profile on mount
+  useEffect(() => {
+    refreshProfile?.()
+  }, [])
+
+  // Also refresh dashboard data
+  useEffect(() => {
     refresh?.()
   }, [])
 
-  
   const displayPlans = dbPlans.length > 0
     ? dbPlans.map(plan => {
         const tier = TIERS.find(t => t.name === plan.title?.split(' ')[0]) || TIERS[0]
         return { ...tier, ...plan, id: plan.id }
       })
     : TIERS
+
+  const isVerified = profile?.kyc_status === 'verified'
+
+  // Only show KYC warning after we've confirmed fresh data
+  const showKycWarning = profileReady && !isVerified  // ← ONLY SHOW WHEN READY
 
   return (
     <div className="dashboard-page">
@@ -803,7 +819,7 @@ export default function InvestmentPlans() {
         <p className="plans-subtitle">
           Choose from our curated real estate investment tiers, designed to maximize your returns
         </p>
-        {profile?.kyc_status !== 'verified' && (
+        {showKycWarning && (  // ← USE showKycWarning
           <div style={{
             background: 'rgba(255, 152, 0, 0.1)',
             border: '1px solid rgba(255, 152, 0, 0.3)',
