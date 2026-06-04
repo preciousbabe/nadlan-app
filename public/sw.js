@@ -1,14 +1,24 @@
 self.addEventListener('install', (event) => {
-  console.log('Service Worker Installed');
-  self.skipWaiting();
-});
+  console.log('Service Worker Installed')
+  self.skipWaiting()
+})
 
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker Activated');
-  event.waitUntil(self.clients.claim());
-});
+  console.log('Service Worker Activated')
+  event.waitUntil(self.clients.claim())
+})
 
-// REQUIRED for PWA installability
 self.addEventListener('fetch', (event) => {
-  event.respondWith(fetch(event.request))
+  // Only handle GET requests (important)
+  if (event.request.method !== 'GET') return
+
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      // fallback response instead of crashing
+      return new Response('Offline or network error', {
+        status: 503,
+        headers: { 'Content-Type': 'text/plain' }
+      })
+    })
+  )
 })
