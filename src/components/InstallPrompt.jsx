@@ -1,5 +1,5 @@
 import usePWAInstall from '../hooks/usePWAInstall'
-import './InstallPrompt'
+import '../styles/InstallPrompt.css'
 
 export default function InstallPrompt() {
   const {
@@ -16,7 +16,6 @@ export default function InstallPrompt() {
     <div className="install-toast">
       <div className="install-left">
         <div className="app-icon">N</div>
-
         <div className="install-text">
           <strong>NADLAN Investments</strong>
           <span>Install app for faster access</span>
@@ -27,8 +26,7 @@ export default function InstallPrompt() {
         <button className="install-btn" onClick={installApp}>
           Install
         </button>
-
-        <button className="dismiss-btn" onClick={dismiss}>
+        <button className="dismiss-btn" onClick={dismiss} aria-label="Dismiss">
           ✕
         </button>
       </div>
