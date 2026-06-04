@@ -1,5 +1,5 @@
 import usePWAInstall from '../hooks/usePWAInstall'
-import '../styles/InstallPrompt.css'
+import '../styles/installPrompt.css'
 
 export default function InstallPrompt() {
   const {
