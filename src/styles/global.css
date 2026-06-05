@@ -485,3 +485,27 @@ p {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--gold);
 }
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.splash-progress-track {
+  width: 240px;              /* or 70% */
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 16px;
+}
+
+.splash-progress-fill {
+  height: 100%;
+  width: 0%;
+  /* background: linear-gradient(90deg, #4ade80, #22c55e); */
+  border-radius: 999px;
+  transition: width 0.1s linear;
+}
