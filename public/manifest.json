@@ -3,15 +3,14 @@
   "name": "NADLAN Investments",
   "short_name": "NADLAN",
   "description": "Real Estate & Green Energy Investment Platform",
-  "theme_color": "#C9A962",
-  "background_color": "#C9A962",
+  "theme_color": "#0A0A0A",
+  "background_color": "#0A0A0A",
   "display": "standalone",
   "orientation": "portrait",
   "start_url": "/",
   "scope": "/",
   "lang": "en",
-  "categories": ["finance", "business"],
-  
+
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -24,23 +23,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    }
-  ],
-  
-  "shortcuts": [
-    {
-      "name": "Dashboard",
-      "short_name": "Dashboard",
-      "description": "View your portfolio",
-      "url": "/dashboard",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Investment Plans",
-      "short_name": "Invest",
-      "description": "Browse investment plans",
-      "url": "/dashboard/investment-plans",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
