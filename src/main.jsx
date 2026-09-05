@@ -32,17 +32,32 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 )
 
-if ('serviceWorker' in navigator) {
-
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      console.log('SW registered')
 
-    navigator.serviceWorker.register('/sw.js')
-      .then(() => {
-        console.log('SW registered')
+      // New version detected → take control immediately
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing
+        newWorker?.addEventListener('statechange', () => {
+          if (
+            newWorker.state === 'installed' &&
+            navigator.serviceWorker.controller
+          ) {
+            newWorker.postMessage({ type: 'SKIP_WAITING' })
+          }
+        })
       })
-      .catch((err) => {
-        console.log(err)
-      })
+    })
 
+    // When the new SW takes over, reload once to serve fresh assets
+    let refreshing = false
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true
+        window.location.reload()
+      }
+    })
   })
 }

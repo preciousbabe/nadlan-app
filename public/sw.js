@@ -1,85 +1,113 @@
-const CACHE_NAME = 'nadlan-cache-v1';
-const STATIC_ASSETS = [
+const VERSION = 'v2';                 // ← bump this string on EVERY deploy
+const CACHE_NAME = `nadlan-cache-${VERSION}`;
+
+// Only files that are guaranteed to exist at these exact paths.
+// Vite's hashed assets (/assets/index-XXXX.js) are handled at runtime instead.
+const PRECACHE = [
   '/',
   '/index.html',
-  '/styles.css',
-  '/script.js'
-  // Add other critical files here (e.g. images, fonts) if they are local
+  '/manifest.json',
+  '/NADLAN_LOGO.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
 ];
+
+const MAX_CACHE_ITEMS = 80;
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting()
+})
 
 /* ── INSTALL ── */
 self.addEventListener('install', (event) => {
-  console.log('Service Worker Installed');
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
-      .catch((err) => console.warn('Pre-cache failed:', err))
+      .then(async (cache) => {
+        // Add files one-by-one so ONE missing icon can't kill the whole install
+        await Promise.allSettled(PRECACHE.map((url) => cache.add(url)));
+      })
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 /* ── ACTIVATE ── */
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker Activated');
   event.waitUntil(
-    caches.keys().then((keyList) =>
-      Promise.all(
-        keyList.map((key) => {
-          if (key !== CACHE_NAME) return caches.delete(key);
-        })
-      )
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
 /* ── FETCH ── */
 self.addEventListener('fetch', (event) => {
-  // Ignore non-GET requests (POST, etc.)
-  if (event.request.method !== 'GET') return;
+  const { request } = event;
+  const url = new URL(request.url);
 
-  // Ignore cross-origin requests (Google Fonts, APIs, etc.) to avoid CORS pain
-  if (!event.request.url.startsWith(self.location.origin)) return;
+  // 1. Never touch non-GET (Supabase auth POSTs, etc.)
+  if (request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      // 1. Return cached file immediately if we have it
-      if (cached) {
-        // Still try to update the cache in the background for next time
-        fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, networkResponse.clone());
-              });
-            }
-          })
-          .catch(() => {});
-        return cached;
-      }
+  // 2. Never touch cross-origin (Font Awesome CDN, Supabase, Google anything).
+  //    Caching opaque CDN responses is a classic source of bloat and failures.
+  if (url.origin !== self.location.origin) return;
 
-      // 2. Nothing in cache — go to network
-      return fetch(event.request)
-        .then((networkResponse) => {
-          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-            return networkResponse;
+  // 3. Skip Range requests (video/audio streaming) — SWs mishandle them
+  if (request.headers.has('range')) return;
+
+  // 4. Page navigations → NETWORK FIRST.
+  //    Guarantees users always get the newest index.html that references
+  //    existing hashed assets. Falls back to cache when offline.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put('/index.html', clone));
           }
-          const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return networkResponse;
+          return res;
         })
-        .catch(() => {
-          // 3. Network failed AND nothing in cache
-          if (event.request.mode === 'navigate') {
-            // If it's a page request, serve the cached index.html (SPA fallback)
-            return caches.match('/index.html');
-          }
-          // For images/css/js, return a tiny error response instead of a blank page
-          return new Response('Network error', {
+        .catch(async () => {
+          const cached = await caches.match('/index.html');
+          return cached || new Response('Offline — NADLAN is unavailable.', {
             status: 503,
-            statusText: 'Service Unavailable',
             headers: { 'Content-Type': 'text/plain' }
           });
-        });
+        })
+    );
+    return;
+  }
+
+  // 5. Same-origin static assets (JS/CSS/images/fonts) → CACHE FIRST,
+  //    with background revalidation, capped cache size.
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const network = fetch(request)
+        .then((res) => {
+          // Only cache fully valid, basic responses
+          if (res.ok && res.type === 'basic') {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((c) => {
+              c.put(request, clone);
+              trimCache(c); // enforce size cap
+            });
+          }
+          return res;
+        })
+        .catch(() => cached); // offline + not cached → browser's natural error
+
+      return cached || network;
     })
   );
 });
+
+/* Trim oldest entries if cache grows too large */
+async function trimCache(cache) {
+  const keys = await cache.keys();
+  if (keys.length > MAX_CACHE_ITEMS) {
+    await cache.delete(keys[0]);
+    return trimCache(cache);
+  }
+}
