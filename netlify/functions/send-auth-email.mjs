@@ -2,7 +2,7 @@ import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 
-const SITE_URL = 'https://starlit-crepe-92496b.netlify.app'
+const SITE_URL = 'https://nadlanworld.netlify.app/'
 
 export async function handler(event) {
   try {
